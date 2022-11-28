@@ -1,6 +1,7 @@
 import tensorflow as tf
 from core.policy_network import PolicyNetwork
 
+
 class Agent:
     NEG_INF = -10000000000.0
 
@@ -51,7 +52,7 @@ class Agent:
         return forward_actions, will_continue_to_sample
 
     def calculate_action_log_probability_ratio(
-        self, trajectories, backward_actions, forward_actions
+            self, trajectories, backward_actions, forward_actions
     ):
         reshaped_positions = tf.reshape(
             trajectories, shape=(-1, self.env_grid_dim)
@@ -78,7 +79,6 @@ class Agent:
         action_log_proba_ratios = total_forward_log_probas - total_backward_log_probas
         return action_log_proba_ratios
 
-
     def _encode_positions(self, position):
         encoded_position = tf.one_hot(
             position, depth=self.env_grid_length, axis=-1
@@ -92,7 +92,7 @@ class Agent:
 
     def _find_forbidden_forward_actions(self, position):
         forward_action_mask = tf.math.equal(
-            position, self.env_grid_length-1
+            position, self.env_grid_length - 1
         )
         return forward_action_mask
 
@@ -140,12 +140,12 @@ class Agent:
     @staticmethod
     def _update_if_stop_action_is_chosen(still_sampling, forward_actions):
         will_continue_to_sample = (
-            still_sampling - tf.reshape(forward_actions[:, -1], shape=(-1, 1))
+                still_sampling - tf.reshape(forward_actions[:, -1], shape=(-1, 1))
         )
         return will_continue_to_sample
 
     def _calculate_backward_action_log_probabilities(
-        self, positions, logits, actions
+            self, positions, logits, actions
     ):
         action_mask = self._find_forbidden_backward_actions(positions)
         action_log_probas = self._calculate_log_probability_of_actions(
@@ -154,7 +154,7 @@ class Agent:
         return action_log_probas
 
     def _calculate_forward_action_log_probabilities(
-        self, positions, logits, actions
+            self, positions, logits, actions
     ):
         action_mask = self._find_forbidden_forward_actions(positions)
         action_log_probas = self._calculate_log_probability_of_actions(
@@ -163,7 +163,7 @@ class Agent:
         return action_log_probas
 
     def _calculate_log_probability_of_actions(
-        self, action_mask, logits, actions
+            self, action_mask, logits, actions
     ):
         allowed_log_probas = self._normalize_allowed_action_logits(
             logits, action_mask
@@ -178,7 +178,8 @@ class Agent:
         allowed_log_probas = tf.nn.log_softmax(allowed_action_logits)
         return allowed_log_probas
 
-    def _get_action_log_probas(self, log_probas, actions):
+    @staticmethod
+    def _get_action_log_probas(log_probas, actions):
         action_log_probas = tf.reduce_sum(
             log_probas * tf.cast(actions, dtype=tf.float32),
             axis=2, keepdims=True

@@ -24,3 +24,32 @@ def _load_vertex_amplitudes(spin_j):
     vertex = np.load(f"../data/EPRL_vertices/vertex_j={float(spin_j)}.npz")
     return vertex
 
+
+class HypergridEnvironment:
+    def __init__(self, grid_dimension, grid_length):
+        self.grid_dimension = grid_dimension
+        self.grid_length = grid_length
+
+    def reset_for_backward_sampling(self, batch_size):
+        positions = tf.random.uniform(
+            shape=(batch_size, self.grid_dimension),
+            minval=0, maxval=self.grid_length, dtype=tf.int32
+        )
+        return positions
+
+    def reset_for_forward_sampling(self, batch_size):
+        positions = tf.zeros(
+            shape=(batch_size, self.grid_dimension),
+            dtype=tf.int32
+        )
+        return positions
+
+    @staticmethod
+    def step_backward(current_position, back_action):
+        new_position = current_position - back_action
+        return new_position
+
+    @staticmethod
+    def step_forward(current_position, forward_action):
+        new_position = current_position + forward_action[:, :-1]
+        return new_position
