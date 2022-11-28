@@ -3,7 +3,7 @@ import tensorflow as tf
 
 class PolicyNetwork(tf.keras.Model):
     def __init__(
-            self, main_layer_nodes, branch1_layer_nodes, branch2_layer_nodes
+        self, main_layer_nodes, branch1_layer_nodes, branch2_layer_nodes
     ):
         super().__init__()
         self.flatten = tf.keras.layers.Flatten()
