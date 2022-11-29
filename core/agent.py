@@ -17,11 +17,12 @@ class Agent:
             branch2_layer_nodes=[self.forward_action_dim],
         )
 
+    @tf.function
     def act_backward(self, current_position):
         encoded_position = self._encode_positions(current_position)
-        backward_action_logits = self.policy.predict(encoded_position)[0]
+        backward_action_logits = self.policy(encoded_position)[0]
 
-        action_mask = self._find_forbidden_backward_actions(encoded_position)
+        action_mask = self._find_forbidden_backward_actions(current_position)
         allowed_action_logits = self._mask_action_logits(
             backward_action_logits, action_mask
         )
@@ -33,11 +34,12 @@ class Agent:
         backward_actions = encoded_actions * is_still_sampling
         return backward_actions
 
+    @tf.function
     def act_forward(self, current_position, is_still_sampling):
         encoded_position = self._encode_positions(current_position)
-        forward_action_logits = self.policy.predict(encoded_position)[1]
+        forward_action_logits = self.policy(encoded_position)[1]
 
-        action_mask = self._find_forbidden_forward_actions(encoded_position)
+        action_mask = self._find_forbidden_forward_actions(current_position)
         allowed_action_logits = self._mask_action_logits(
             forward_action_logits, action_mask
         )
