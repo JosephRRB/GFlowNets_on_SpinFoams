@@ -79,6 +79,7 @@ class Agent:
         action_log_proba_ratios = total_forward_log_probas - total_backward_log_probas
         return action_log_proba_ratios
 
+    @tf.function
     def _encode_positions(self, position):
         encoded_position = tf.one_hot(
             position, depth=self.env_grid_length, axis=-1
@@ -86,30 +87,36 @@ class Agent:
         return encoded_position
 
     @staticmethod
+    @tf.function
     def _find_forbidden_backward_actions(position):
         backward_action_mask = tf.math.equal(position, 0)
         return backward_action_mask
 
+    @tf.function
     def _find_forbidden_forward_actions(self, position):
         forward_action_mask = tf.math.equal(
             position, self.env_grid_length - 1
         )
         return forward_action_mask
 
+    @tf.function
     def _mask_action_logits(self, action_logits, mask):
         avoid_inds = tf.where(mask)
+        orig_values = tf.gather_nd(action_logits, avoid_inds)
+        add_values = -orig_values + self.NEG_INF
         # Need validation that masked are not sampled
         masked_logits = tf.tensor_scatter_nd_add(
-            action_logits, avoid_inds,
-            tf.constant([self.NEG_INF] * avoid_inds.shape[0])
+            action_logits, avoid_inds, add_values
         )
         return masked_logits
 
     @staticmethod
+    @tf.function
     def _choose_actions(logits):
         action_indices = tf.random.categorical(logits, 1)
         return action_indices
 
+    @tf.function
     def _encode_backward_actions(self, action_indices):
         encoded_actions = tf.one_hot(
             tf.reshape(action_indices, shape=(-1,)),
@@ -118,6 +125,7 @@ class Agent:
         )
         return encoded_actions
 
+    @tf.function
     def _encode_forward_actions(self, action_indices):
         encoded_actions = tf.one_hot(
             tf.reshape(action_indices, shape=(-1,)),
@@ -127,6 +135,7 @@ class Agent:
         return encoded_actions
 
     @staticmethod
+    @tf.function
     def _check_if_able_to_act_backward(backwards_action_mask):
         is_at_origin = tf.math.reduce_all(
             backwards_action_mask, axis=1, keepdims=True
@@ -138,6 +147,7 @@ class Agent:
         return is_able
 
     @staticmethod
+    @tf.function
     def _update_if_stop_action_is_chosen(still_sampling, forward_actions):
         will_continue_to_sample = (
                 still_sampling - tf.reshape(forward_actions[:, -1], shape=(-1, 1))
