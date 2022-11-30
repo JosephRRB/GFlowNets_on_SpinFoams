@@ -562,3 +562,143 @@ def test_log_probas_correctly_correspond_to_actions():
         actions.shape[0], actions.shape[1], 1
     )
     tf.debugging.assert_equal(action_log_probas, expected)
+
+
+def test_log_probas_of_backward_actions_are_correct():
+    grid_dim = 5
+    grid_length = 8
+    agent = Agent(
+        env_grid_dim=grid_dim,
+        env_grid_length=grid_length
+    )
+    positions = tf.constant([
+        [
+            [5, 7, 4, 3, 5],
+            [0, 5, 0, 0, 0],
+        ],
+        [
+            [0, 0, 0, 0, 0],
+            [0, 6, 1, 0, 2],
+        ],
+    ])
+    logits = tf.constant([
+        [
+            [3.1, 5.3, -7.2, -0.7, 1.2],
+            [6.5, -1.4, 2.6, -8.2, 4.9],
+        ],
+        [
+            [-5.7, 3.1, -4.3, 9.5, -6.7],
+            [-0.9, -2.7, 5.3, 2.9, 8.4],
+        ],
+    ])
+    actions = tf.constant([
+        [
+            [0, 0, 0, 1, 0],
+            [0, 1, 0, 0, 0],
+        ],
+        [
+            [0, 0, 0, 0, 0],
+            [0, 0, 1, 0, 0],
+        ],
+    ])
+    backward_log_probas = agent._calculate_backward_action_log_probabilities(
+        positions, logits, actions
+    )
+
+    norm_00 = tf.math.log(tf.math.reduce_sum(tf.math.exp(
+        logits[0, 0, :]
+    )))
+    expected_00 = logits[0, 0, 3] - norm_00
+
+    norm_01 = tf.math.log(tf.math.reduce_sum(tf.math.exp(
+        logits[0, 1, 1]
+    )))
+    expected_01 = logits[0, 1, 1] - norm_01
+
+    expected_10 = 0.0
+
+    norm_11 = tf.math.log(tf.math.reduce_sum(tf.math.exp(
+        tf.gather(logits[1, 1, :], [1, 2, 4])
+    )))
+    expected_11 = logits[1, 1, 2] - norm_11
+
+    expected = tf.reshape(
+        tf.stack([expected_00, expected_01, expected_10, expected_11]),
+        shape=(2, 2, 1)
+    )
+
+    assert backward_log_probas.shape == (
+        actions.shape[0], actions.shape[1], 1
+    )
+    tf.debugging.assert_near(backward_log_probas, expected)
+
+
+def test_log_probas_of_forward_actions_are_correct():
+    grid_dim = 5
+    grid_length = 8
+    agent = Agent(
+        env_grid_dim=grid_dim,
+        env_grid_length=grid_length
+    )
+    positions = tf.constant([
+        [
+            [5, 0, 4, 3, 5],
+            [7, 7, 7, 3, 7],
+        ],
+        [
+            [7, 7, 7, 7, 7],
+            [5, 0, 4, 3, 5],
+        ],
+    ])
+    logits = tf.constant([
+        [
+            [3.1, 5.3, -7.2, -0.7, 1.2, -5.2],
+            [6.5, -1.4, 2.6, -8.2, 4.9, 0.4],
+        ],
+        [
+            [-5.7, 3.1, -4.3, 9.5, -6.7, 1.4],
+            [-0.9, -2.7, 5.3, 2.9, 8.4, -2.1],
+        ],
+    ])
+    actions = tf.constant([
+        [
+            [0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1],
+        ],
+        [
+            [0, 0, 0, 0, 0, 1],
+            [0, 0, 0, 0, 0, 0],
+        ],
+    ])
+
+    forward_log_probas = agent._calculate_forward_action_log_probabilities(
+        positions, logits, actions
+    )
+
+    norm_00 = tf.math.log(tf.math.reduce_sum(tf.math.exp(
+        logits[0, 0, :]
+    )))
+    expected_00 = logits[0, 0, 1] - norm_00
+
+    norm_01 = tf.math.log(tf.math.reduce_sum(tf.math.exp(
+        tf.gather(logits[0, 1, :], [3, 5])
+    )))
+    expected_01 = logits[0, 1, 5] - norm_01
+
+    norm_10 = tf.math.log(tf.math.reduce_sum(tf.math.exp(
+        logits[1, 1, 5]
+    )))
+    expected_10 = logits[1, 1, 5] - norm_10
+
+    expected_11 = 0.0
+
+    expected = tf.reshape(
+        tf.stack([expected_00, expected_01, expected_10, expected_11]),
+        shape=(2, 2, 1)
+    )
+
+    assert forward_log_probas.shape == (
+        actions.shape[0], actions.shape[1], 1
+    )
+    tf.debugging.assert_near(forward_log_probas, expected)
+
