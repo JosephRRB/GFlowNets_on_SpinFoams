@@ -226,6 +226,25 @@ def test_position_is_correctly_encoded():
     tf.debugging.assert_equal(encoded_position, expected)
 
 
+def test_action_logits_have_correct_shape():
+    grid_dim = 5
+    grid_length = 8
+    agent = Agent(
+        env_grid_dim=grid_dim,
+        env_grid_length=grid_length
+    )
+    position = tf.constant([
+        [6, 3, 5, 0, 3],
+        [7, 7, 7, 7, 7],
+        [1, 7, 4, 2, 0],
+        [0, 0, 0, 0, 0],
+    ], dtype=tf.int32)
+    backward_logits, forward_logits = agent._get_action_logits(position)
+
+    assert backward_logits.shape == (position.shape[0], agent.backward_action_dim)
+    assert forward_logits.shape == (position.shape[0], agent.forward_action_dim)
+
+
 def test_forbidden_backward_actions_are_correct():
     position = tf.constant([
         [6, 3, 5, 0, 3],
@@ -402,3 +421,144 @@ def test_still_sampling_flag_becomes_0_if_stop_action_is_chosen():
     assert will_continue_to_sample.shape == is_still_sampling.shape
     assert will_continue_to_sample.shape == (forward_actions.shape[0], 1)
     tf.debugging.assert_equal(will_continue_to_sample, expected)
+
+
+def test_logits_for_trajectories_are_properly_reshaped():
+    grid_dim = 5
+    grid_length = 8
+    agent = Agent(
+        env_grid_dim=grid_dim,
+        env_grid_length=grid_length
+    )
+    trajectories = tf.constant([
+        [
+            [6, 3, 5, 0, 3],
+            [7, 7, 7, 7, 7],
+        ],
+        [
+            [1, 7, 4, 2, 0],
+            [0, 0, 0, 0, 0],
+        ],
+    ], dtype=tf.int32)
+    traj_b, traj_f = agent._get_action_logits_for_trajectories(trajectories)
+
+    expected_b0, expected_f0 = agent._get_action_logits(trajectories[0])
+    expected_b1, expected_f1 = agent._get_action_logits(trajectories[1])
+
+    assert traj_b.shape == (
+        trajectories.shape[0], trajectories.shape[1], agent.backward_action_dim
+    )
+    assert traj_f.shape == (
+        trajectories.shape[0], trajectories.shape[1], agent.forward_action_dim
+    )
+    # TODO: Maybe try build first?
+    tf.debugging.assert_near(traj_b[0], expected_b0)
+    tf.debugging.assert_near(traj_b[1], expected_b1)
+    tf.debugging.assert_near(traj_f[0], expected_f0)
+    tf.debugging.assert_near(traj_f[1], expected_f1)
+
+
+def test_logits_are_properly_normalized():
+    grid_dim = 5
+    grid_length = 8
+    agent = Agent(
+        env_grid_dim=grid_dim,
+        env_grid_length=grid_length
+    )
+    logits = tf.constant([
+        [
+            [3.1, 5.3, -7.2, -0.7, 1.2],
+            [6.5, -1.4, 2.6, -8.2, 4.9],
+        ],
+        [
+            [-5.7, 3.1, -4.3, 9.5, -6.7],
+            [-0.9, -2.7, 5.3, 2.9, 8.4],
+        ]
+    ])
+    mask = tf.constant([
+        [
+            [False, False, False, False, False],
+            [True, True, True, False, False],
+        ],
+        [
+            [True, True, False, True, True],
+            [False, False, False, False, True]
+        ],
+    ])
+    # Note: When all logits are masked, they will be normalized to the same value.
+    # However, the agent will not act in this case so the logits will not contribute
+    # to the calculations downstream
+
+    allowed_log_probas = agent._normalize_allowed_action_logits(logits, mask)
+
+    norm_00 = tf.math.log(tf.math.reduce_sum(tf.math.exp(
+        logits[0, 0, :]
+    )))
+    expected_00 = logits[0, 0, :] - norm_00
+
+    norm_01 = tf.math.log(tf.math.reduce_sum(tf.math.exp(
+        logits[0, 1, -2:]
+    )))
+    expected_01 = logits[0, 1, :] - norm_01
+
+    norm_10 = tf.math.log(tf.math.reduce_sum(tf.math.exp(
+        logits[1, 0, 2]
+    )))
+    expected_10 = logits[1, 0, :] - norm_10
+
+    norm_11 = tf.math.log(tf.math.reduce_sum(tf.math.exp(
+        logits[1, 1, :-1]
+    )))
+    expected_11 = logits[1, 1, :] - norm_11
+
+    # Only checking allowed log probas. They are the only ones chosen
+    tf.debugging.assert_near(allowed_log_probas[0, 0, :], expected_00)
+    tf.debugging.assert_near(allowed_log_probas[0, 1, -2:], expected_01[-2:])
+    tf.debugging.assert_near(allowed_log_probas[1, 0, 2], expected_10[2])
+    tf.debugging.assert_near(allowed_log_probas[1, 1, :-1], expected_11[:-1])
+
+    assert allowed_log_probas.shape == logits.shape
+
+
+def test_log_probas_correctly_correspond_to_actions():
+    neg_inf = Agent.NEG_INF
+    allowed_log_probas = tf.constant([
+        [
+            [3.1, 5.3, -7.2, -0.7, 1.2],
+            [6.5, neg_inf, 2.6, neg_inf, 4.9],
+        ],
+        [
+            [-1.6, -1.6, -1.6, -1.6, -1.6],
+            [neg_inf, 0.0, neg_inf, neg_inf, neg_inf],
+        ],
+    ])
+    actions = tf.constant([
+        [
+            [0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 1],
+        ],
+        [
+            [0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0]
+        ],
+    ])
+
+    action_log_probas = Agent._get_action_log_probas(
+        allowed_log_probas, actions
+    )
+
+    expected = tf.constant([
+        [
+            [-7.2],
+            [4.9],
+        ],
+        [
+            [0.0],
+            [0.0]
+        ]
+    ])
+
+    assert action_log_probas.shape == (
+        actions.shape[0], actions.shape[1], 1
+    )
+    tf.debugging.assert_equal(action_log_probas, expected)
