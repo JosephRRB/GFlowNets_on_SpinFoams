@@ -13,7 +13,6 @@ class Runner:
             grid_dimension=grid_dimension, grid_length=grid_length
         )
 
-    # @tf.function
     def generate_backward_trajectories(self, batch_size):
         current_position = self.env.reset_for_backward_sampling(batch_size)
 
@@ -21,13 +20,6 @@ class Runner:
             shape=(batch_size, self.agent.backward_action_dim), dtype=tf.int32
         )
 
-        # i = tf.constant(0)
-        # trajectory_array = tf.TensorArray(tf.int32, size=i, dynamic_size=True)
-        # b_action_array = tf.TensorArray(tf.int32, size=i, dynamic_size=True)
-        # f_action_array = tf.TensorArray(tf.int32, size=i, dynamic_size=True)
-        #
-        # trajectory_array.write(0, current_position)
-        # f_action_array.write(0, no_coord_action)
         trajectories = [current_position]
         backward_actions = []
         forward_actions = [no_coord_action]
@@ -40,24 +32,13 @@ class Runner:
             trajectories.append(current_position)
             backward_actions.append(action)
             forward_actions.append(action)
-            # trajectory_array.write(i+1, current_position)
-            # b_action_array.write(i, action)
-            # f_action_array.write(i+1, action)
-            #
-            # i += 1
+
             at_least_one_ongoing = tf.math.reduce_any(
                 tf.math.not_equal(current_position, 0)
             )
         backward_actions.append(no_coord_action)
-        # b_action_array.write(i, no_coord_action)
 
         trajectory_max_len = len(trajectories)
-        # # trajectory_max_len = trajectory_array.size()
-        # trajectories = trajectory_array.stack()
-        # # trajectory_max_len = tf.shape(trajectories)[0]
-        # trajectory_max_len = i + 1
-        # print(trajectory_max_len)
-        # print(i+1)
         stop_actions = tf.scatter_nd(
             indices=[[0]],
             updates=tf.ones(shape=(1, batch_size, 1), dtype=tf.int32),
@@ -66,12 +47,8 @@ class Runner:
         trajectories = tf.stack(trajectories)
         backward_actions = tf.stack(backward_actions)
         forward_actions = tf.concat([tf.stack(forward_actions), stop_actions], axis=2)
-
-        # backward_actions = b_action_array.stack()
-        # forward_actions = tf.concat([f_action_array.stack(), stop_actions], axis=2)
         return trajectories, backward_actions, forward_actions
 
-    @tf.function
     def generate_forward_trajectories(self, batch_size):
         current_position = self.env.reset_for_forward_sampling(batch_size)
         is_still_sampling = tf.ones(
