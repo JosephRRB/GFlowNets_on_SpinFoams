@@ -8,35 +8,41 @@ class Runner:
 
     def generate_backward_trajectories(self, batch_size):
         current_position = self.env.reset_for_backward_sampling(batch_size)
+
+        no_coord_action = tf.zeros(
+            shape=(batch_size, self.agent.backward_action_dim), dtype=tf.int32
+        )
         trajectories = [current_position]
-        actions = []
+        backward_actions = []
+        forward_actions = [no_coord_action]
 
         at_least_one_ongoing = tf.constant(True)
         while at_least_one_ongoing:
             action = self.agent.act_backward(current_position)
             current_position = self.env.step_backward(current_position, action)
+
             trajectories.append(current_position)
-            actions.append(action)
+            backward_actions.append(action)
+            forward_actions.append(action)
 
             at_least_one_ongoing = tf.math.reduce_any(
                 tf.math.not_equal(current_position, 0)
             )
+        backward_actions.append(no_coord_action)
+
+        trajectory_max_len = len(trajectories)
+        stop_actions = tf.scatter_nd(
+            indices=[[0]],
+            updates=tf.ones(shape=(1, batch_size, 1), dtype=tf.int32),
+            shape=(trajectory_max_len, batch_size, 1)
+        )
 
         trajectories = tf.stack(trajectories)
-        trajectory_max_len = trajectories.shape[0]
-
-        no_action = tf.zeros(
-            shape=(batch_size, self.agent.backward_action_dim), dtype=tf.int32
-        )
-        backward_actions = tf.stack(actions + [no_action])
-        forward_coordinate_actions = tf.stack([no_action] + actions)
-        terminate_action = tf.concat([
-            tf.ones(shape=(1, batch_size, 1), dtype=tf.int32),
-            tf.zeros(shape=(trajectory_max_len - 1, batch_size, 1), dtype=tf.int32)
-        ], axis=0)
-        forward_actions = tf.concat(
-            [forward_coordinate_actions, terminate_action], axis=2
-        )
+        backward_actions = tf.stack(backward_actions)
+        forward_actions = tf.concat([
+            tf.stack(forward_actions),
+            stop_actions
+        ], axis=2)
         return trajectories, backward_actions, forward_actions
 
     def generate_forward_trajectories(self, batch_size):
