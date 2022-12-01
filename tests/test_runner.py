@@ -100,6 +100,24 @@ def test_first_positions_for_forward_trajectories_are_all_0():
     tf.debugging.assert_equal(trajectories[0], 0)
 
 
+def test_stop_action_correctly_stops_forward_trajectories():
+    grid_dim = 5
+    grid_length = 8
+    batch_size = 10
+
+    runner = Runner(grid_dimension=grid_dim, grid_length=grid_length)
+    trajectories, _, forward_actions = runner.generate_forward_trajectories(batch_size)
+
+    stop_actions = forward_actions[:, :, -1]
+    stop_action_indices = tf.where(stop_actions)
+    coord_when_stop_was_chosen = tf.gather_nd(trajectories, stop_action_indices)
+    corresponding_last_coords = tf.gather_nd(
+        trajectories[-1, :, :], tf.reshape(stop_action_indices[:, 1], shape=(-1, 1))
+    )
+
+    tf.debugging.assert_equal(coord_when_stop_was_chosen, corresponding_last_coords)
+    tf.debugging.assert_equal(tf.reduce_sum(stop_actions, axis=0), 1)
+
 def test_first_backward_actions_for_forward_trajectories_are_all_0():
     grid_dim = 5
     grid_length = 8
