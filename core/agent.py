@@ -152,7 +152,7 @@ class Agent:
         will_continue_to_sample = still_sampling - tf.reshape(forward_actions[:, -1], shape=(-1, 1))
         return will_continue_to_sample
 
-    # @tf.function(reduce_retracing=True)
+    # @tf.function(input_signature=[tf.TensorSpec(shape=(None, None, None), dtype=tf.int32)])
     def _get_action_logits_for_trajectories(self, trajectories):
         shape = tf.shape(trajectories)
         max_traj_len = shape[0]
@@ -168,32 +168,50 @@ class Agent:
         )
         return trajectory_backward_logits, trajectory_forward_logits
 
-    # @tf.function(reduce_retracing=True)
+    # @tf.function(input_signature=[
+    #     tf.TensorSpec(shape=(None, None, None), dtype=tf.int32),
+    #     tf.TensorSpec(shape=(None, None, None), dtype=tf.float32),
+    #     tf.TensorSpec(shape=(None, None, None), dtype=tf.int32)
+    # ])
     def _calculate_backward_action_log_probabilities(self, positions, logits, actions):
         action_mask = self._find_forbidden_backward_actions(positions)
         action_log_probas = self._calculate_log_probability_of_actions(action_mask, logits, actions)
         return action_log_probas
 
-    # @tf.function(reduce_retracing=True)
+    # @tf.function(input_signature=[
+    #     tf.TensorSpec(shape=(None, None, None), dtype=tf.int32),
+    #     tf.TensorSpec(shape=(None, None, None), dtype=tf.float32),
+    #     tf.TensorSpec(shape=(None, None, None), dtype=tf.int32)
+    # ])
     def _calculate_forward_action_log_probabilities(self, positions, logits, actions):
         action_mask = self._find_forbidden_forward_actions(positions)
         action_log_probas = self._calculate_log_probability_of_actions(action_mask, logits, actions)
         return action_log_probas
 
-    # @tf.function(reduce_retracing=True)
+    # @tf.function(input_signature=[
+    #     tf.TensorSpec(shape=(None, None, None), dtype=tf.bool),
+    #     tf.TensorSpec(shape=(None, None, None), dtype=tf.float32),
+    #     tf.TensorSpec(shape=(None, None, None), dtype=tf.int32)
+    # ])
     def _calculate_log_probability_of_actions(self, action_mask, logits, actions):
         allowed_log_probas = self._normalize_allowed_action_logits(logits, action_mask)
         log_proba_of_chosen_actions = self._get_action_log_probas(allowed_log_probas, actions)
         return log_proba_of_chosen_actions
 
-    # @tf.function(reduce_retracing=True)
+    # @tf.function(input_signature=[
+    #     tf.TensorSpec(shape=(None, None, None), dtype=tf.float32),
+    #     tf.TensorSpec(shape=(None, None, None), dtype=tf.bool),
+    # ])
     def _normalize_allowed_action_logits(self, logits, mask):
         allowed_action_logits = self._mask_action_logits(logits, mask)
         allowed_log_probas = tf.nn.log_softmax(allowed_action_logits)
         return allowed_log_probas
 
     @staticmethod
-    # @tf.function(reduce_retracing=True)
+    # @tf.function(input_signature=[
+    #     tf.TensorSpec(shape=(None, None, None), dtype=tf.float32),
+    #     tf.TensorSpec(shape=(None, None, None), dtype=tf.int32),
+    # ])
     def _get_action_log_probas(log_probas, actions):
         action_log_probas = tf.reduce_sum(log_probas * tf.cast(actions, dtype=tf.float32), axis=2, keepdims=True)
         return action_log_probas
