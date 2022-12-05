@@ -19,15 +19,15 @@ class Agent:
             branch1_layer_nodes=[self.backward_action_dim],
             branch2_layer_nodes=[self.forward_action_dim],
         )
-    #     self._build_policy_network()
-    #
-    # def _build_policy_network(self):
-    #     # TODO: generalize later
-    #     self.policy.main_layers[0].build(self.env_grid_length*self.env_grid_dim)
-    #     self.policy.branch1_layers[0].build(15)
-    #     self.policy.branch2_layers[0].build(15)
+        self._build_policy_network()
 
-    # @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
+    def _build_policy_network(self):
+        # TODO: generalize later
+        self.policy.main_layers[0].build(self.env_grid_length*self.env_grid_dim)
+        self.policy.branch1_layers[0].build(15)
+        self.policy.branch2_layers[0].build(15)
+
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
     def act_backward(self, current_position):
         backward_action_logits, _ = self._get_action_logits(current_position)
 
@@ -66,11 +66,11 @@ class Agent:
         will_continue_to_sample = self._update_if_stop_action_is_chosen(is_still_sampling, forward_actions)
         return forward_actions, will_continue_to_sample
 
-    # @tf.function(input_signature=[
-    #     tf.TensorSpec(shape=(None, None), dtype=tf.int32),
-    #     tf.TensorSpec(shape=(None, 1), dtype=tf.int32),
-    #     tf.TensorSpec(shape=None, dtype=tf.bool)
-    # ])
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=(None, None, None), dtype=tf.int32),
+        tf.TensorSpec(shape=(None, None, None), dtype=tf.int32),
+        tf.TensorSpec(shape=(None, None, None), dtype=tf.int32)
+    ])
     def calculate_action_log_probability_ratio(self, trajectories, backward_actions, forward_actions):
         backward_logits, forward_logits = self._get_action_logits_for_trajectories(trajectories)
 
@@ -103,7 +103,7 @@ class Agent:
         backward_action_mask = tf.math.equal(position, 0)
         return backward_action_mask
 
-    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
+    # @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def _find_forbidden_forward_actions(self, position):
         forward_action_mask = tf.math.equal(position, self.env_grid_length - 1)
         return forward_action_mask
@@ -131,7 +131,7 @@ class Agent:
         encoded_actions = tf.one_hot(reshaped_action_indices, depth=self.backward_action_dim, dtype=tf.int32)
         return encoded_actions
 
-    @tf.function(input_signature=[tf.TensorSpec(shape=(None, 1), dtype=tf.int64)])
+    # @tf.function(input_signature=[tf.TensorSpec(shape=(None, 1), dtype=tf.int64)])
     def _encode_forward_actions(self, action_indices):
         reshaped_action_indices = tf.reshape(action_indices, shape=(-1,))
         encoded_actions = tf.one_hot(reshaped_action_indices, depth=self.forward_action_dim, dtype=tf.int32)
@@ -145,17 +145,18 @@ class Agent:
         return is_able
 
     @staticmethod
-    @tf.function(input_signature=[
-        tf.TensorSpec(shape=(None, 1), dtype=tf.int32), tf.TensorSpec(shape=(None, None), dtype=tf.int32)
-    ])
+    # @tf.function(input_signature=[
+    #     tf.TensorSpec(shape=(None, 1), dtype=tf.int32), tf.TensorSpec(shape=(None, None), dtype=tf.int32)
+    # ])
     def _update_if_stop_action_is_chosen(still_sampling, forward_actions):
         will_continue_to_sample = still_sampling - tf.reshape(forward_actions[:, -1], shape=(-1, 1))
         return will_continue_to_sample
 
     # @tf.function(reduce_retracing=True)
     def _get_action_logits_for_trajectories(self, trajectories):
-        max_traj_len = trajectories.shape[0]
-        batch_size = trajectories.shape[1]
+        shape = tf.shape(trajectories)
+        max_traj_len = shape[0]
+        batch_size = shape[1]
 
         reshaped_positions = tf.reshape(trajectories, shape=(-1, self.env_grid_dim))
         backward_logits, forward_logits = self._get_action_logits(reshaped_positions)
