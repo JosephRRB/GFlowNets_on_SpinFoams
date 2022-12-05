@@ -14,16 +14,16 @@ class Runner:
         )
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
+    @tf.function
     def train_agent(self, batch_size, n_iterations):
-        batch_size = tf.constant(batch_size)
-        ave_losses = []
-        for i in range(n_iterations):
+        ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+        for i in tf.range(n_iterations):
             ave_loss = self._training_step(batch_size)
-            ave_losses.append(ave_loss)
+            ave_losses = ave_losses.write(i, ave_loss)
 
-            if i % 100 == 0:
-                print(f"Iteration: {i}, Average Loss: {float(ave_loss):.5f}")
-        ave_losses = tf.concat(ave_losses, axis=0)
+            if tf.math.equal(tf.math.floormod(i, 100), 0):
+                tf.print("Iteration:",  i, "Average Loss:", ave_loss)
+        ave_losses = ave_losses.stack()
         return ave_losses
 
     @tf.function
