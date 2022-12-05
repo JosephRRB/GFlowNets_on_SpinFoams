@@ -2,7 +2,9 @@ import tensorflow as tf
 
 from core.runner import Runner
 
-
+# 1s 773ms -> all tf.function
+# 1s 528ms -> only top tf.function
+# 530ms -> without tf.function
 def test_actions_correctly_correspond_to_backward_trajectories():
     grid_dim = 5
     grid_length = 8

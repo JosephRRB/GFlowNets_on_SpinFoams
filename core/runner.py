@@ -107,7 +107,7 @@ class Runner:
         at_least_one_ongoing = tf.constant(True)
         while at_least_one_ongoing:
             action, is_still_sampling = self.agent.act_forward(
-                current_position, is_still_sampling, training=training
+                current_position, is_still_sampling, training=tf.constant(training)
             )
             current_position = self.env.step_forward(current_position, action)
 

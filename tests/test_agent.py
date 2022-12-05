@@ -74,7 +74,7 @@ def test_agent_only_chooses_one_forward_action_per_position_if_still_sampling():
         [1], [1], [1]
     ], dtype=tf.int32)
 
-    forward_actions, _ = agent.act_forward(current_position, is_still_sampling)
+    forward_actions, _ = agent.act_forward(current_position, is_still_sampling, training=tf.constant(False))
 
     n_actions = tf.math.reduce_sum(forward_actions, axis=1)
     expected = tf.constant([1, 1, 1], dtype=tf.int32)
@@ -98,7 +98,7 @@ def test_agent_does_not_act_forward_if_no_longer_sampling():
         [0], [0], [0]
     ], dtype=tf.int32)
 
-    forward_actions, _ = agent.act_forward(current_position, is_still_sampling)
+    forward_actions, _ = agent.act_forward(current_position, is_still_sampling, training=tf.constant(False))
 
     expected = tf.zeros(
         shape=(current_position.shape[0], agent.forward_action_dim),
@@ -123,7 +123,7 @@ def test_agent_does_not_choose_forbidden_forward_actions():
     )
     is_still_sampling = tf.ones(shape=(2000, 1), dtype=tf.int32)
 
-    forward_actions, _ = agent.act_forward(current_position, is_still_sampling)
+    forward_actions, _ = agent.act_forward(current_position, is_still_sampling, training=tf.constant(False))
 
     chosen_actions_1 = set(tf.where(forward_actions[:1000, :])[:, 1].numpy())
     chosen_actions_2 = set(tf.where(forward_actions[1000:, :])[:, 1].numpy())
@@ -142,7 +142,7 @@ def test_agent_only_chooses_stop_action_if_position_is_at_grid_length_corner():
     current_position = (grid_length - 1) * tf.ones(shape=(1000, grid_dim), dtype=tf.int32)
     is_still_sampling = tf.ones(shape=(1000, 1), dtype=tf.int32)
 
-    forward_actions, _ = agent.act_forward(current_position, is_still_sampling)
+    forward_actions, _ = agent.act_forward(current_position, is_still_sampling, training=tf.constant(False))
 
     expected = tf.concat([
         tf.zeros(shape=(1000, grid_dim), dtype=tf.int32),
@@ -169,7 +169,7 @@ def test_agent_correctly_updates_still_sampling_flag_if_stop_action_is_chosen():
     ], axis=0)
 
     forward_actions, will_continue_to_sample = agent.act_forward(
-        current_position, is_still_sampling
+        current_position, is_still_sampling, training=tf.constant(False)
     )
 
     previously_stopped_sampling = will_continue_to_sample[1000:, 0]
@@ -343,7 +343,7 @@ def test_backward_actions_are_correctly_encoded():
     )
     action_indices = tf.constant([
         [0], [1], [2], [3], [4]
-    ])
+    ], dtype=tf.int64)
     encoded_actions = agent._encode_backward_actions(action_indices)
 
     expected = tf.constant([
@@ -367,7 +367,7 @@ def test_forward_actions_are_correctly_encoded():
     )
     action_indices = tf.constant([
         [0], [1], [2], [3], [4], [5]
-    ])
+    ], dtype=tf.int64)
     encoded_actions = agent._encode_forward_actions(action_indices)
 
     expected = tf.constant([
