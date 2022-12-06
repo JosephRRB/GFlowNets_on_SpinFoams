@@ -5,7 +5,10 @@ from core.policy_network import PolicyNetwork
 class Agent:
     NEG_INF = -10000000000.0
 
-    def __init__(self, env_grid_dim, env_grid_length, exploration_rate=0.5):
+    def __init__(self, env_grid_dim, env_grid_length,
+                 main_layer_hidden_nodes, branch1_hidden_nodes, branch2_hidden_nodes,
+                 exploration_rate=0.5
+                 ):
         self.env_grid_dim = env_grid_dim
         self.env_grid_length = env_grid_length
         self.backward_action_dim = self.env_grid_dim
@@ -15,17 +18,10 @@ class Agent:
 
         self.log_Z0 = tf.Variable(0.0, trainable=True, name="log_Z0")
         self.policy = PolicyNetwork(
-            main_layer_nodes=[15],
-            branch1_layer_nodes=[self.backward_action_dim],
-            branch2_layer_nodes=[self.forward_action_dim],
+            main_layer_nodes=[self.env_grid_length*self.env_grid_dim] + main_layer_hidden_nodes,
+            branch1_layer_nodes=branch1_hidden_nodes + [self.backward_action_dim],
+            branch2_layer_nodes=branch2_hidden_nodes + [self.forward_action_dim],
         )
-        self._build_policy_network()
-
-    def _build_policy_network(self):
-        # TODO: generalize later
-        self.policy.main_layers[0].build(self.env_grid_length*self.env_grid_dim)
-        self.policy.branch1_layers[0].build(15)
-        self.policy.branch2_layers[0].build(15)
 
     @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
     def act_backward(self, current_position):

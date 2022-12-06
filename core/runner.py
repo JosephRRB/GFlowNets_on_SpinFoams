@@ -5,9 +5,15 @@ from core.agent import Agent
 
 
 class Runner:
-    def __init__(self, grid_dimension, grid_length, learning_rate=0.0005):
+    def __init__(self, grid_dimension, grid_length,
+                 main_layer_hidden_nodes, branch1_hidden_nodes, branch2_hidden_nodes,
+                 exploration_rate=0.5,
+                 learning_rate=0.0005
+                 ):
         self.agent = Agent(
-            env_grid_dim=grid_dimension, env_grid_length=grid_length
+            grid_dimension, grid_length,
+            main_layer_hidden_nodes, branch1_hidden_nodes, branch2_hidden_nodes,
+            exploration_rate=exploration_rate
         )
         self.env = HypergridEnvironment(
             grid_dimension=grid_dimension, grid_length=grid_length
@@ -15,13 +21,13 @@ class Runner:
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     @tf.function
-    def train_agent(self, batch_size, n_iterations):
+    def train_agent(self, batch_size, n_iterations, check_loss_every_n_iterations):
         ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
         for i in tf.range(n_iterations):
             ave_loss = self._training_step(batch_size)
             ave_losses = ave_losses.write(i, ave_loss)
 
-            if tf.math.equal(tf.math.floormod(i, 100), 0):
+            if tf.math.equal(tf.math.floormod(i, check_loss_every_n_iterations), 0):
                 tf.print("Iteration:",  i, "Average Loss:", ave_loss)
         ave_losses = ave_losses.stack()
         return ave_losses
