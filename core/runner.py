@@ -27,6 +27,44 @@ class Runner:
         return ave_losses
 
     @tf.function
+    def generate_samples_from_agent(self, batch_size):
+        current_position = self.env.reset_for_forward_sampling(batch_size)
+        is_still_sampling = tf.ones(
+            shape=(batch_size, 1), dtype=tf.int32
+        )
+        training = tf.constant(False)
+
+        at_least_one_ongoing = tf.constant(True)
+        while at_least_one_ongoing:
+            action, is_still_sampling = self.agent.act_forward(
+                current_position, is_still_sampling, training
+            )
+            current_position = self.env.step_forward(current_position, action)
+            at_least_one_ongoing = tf.math.reduce_any(
+                tf.math.equal(is_still_sampling, 1)
+            )
+        return current_position
+
+    def _get_normalized_agent_sample_distribution(self, batch_size):
+        samples = self.generate_samples_from_agent(batch_size)
+        sample_counts = self._count_sampled_grid_coordinates(samples)
+
+        # normalized_env_rewards = self.env.rewards / tf.math.reduce_sum(self.env.rewards)
+        normalized_agent_sample_distribution = sample_counts / tf.math.reduce_sum(sample_counts)
+
+        # abs_error = tf.math.abs(normalized_agent_sample_distribution - normalized_env_rewards)
+        # return abs_error, normalized_agent_sample_distribution, normalized_env_rewards
+        return normalized_agent_sample_distribution
+
+    @tf.function
+    def _count_sampled_grid_coordinates(self, samples):
+        n_samples = tf.shape(samples)[0]
+        zeros = tf.zeros(shape=[self.env.grid_length] * self.env.grid_dimension, dtype=tf.float32)
+        updates = tf.ones(shape=[n_samples], dtype=tf.float32)
+        counts = tf.tensor_scatter_nd_add(zeros, samples, updates)
+        return counts
+
+    @tf.function
     def _training_step(self, batch_size):
         ts1, ba1, fa1 = self._generate_backward_trajectories(batch_size)
         ts2, ba2, fa2 = self._generate_forward_trajectories(batch_size, training=tf.constant(True))
