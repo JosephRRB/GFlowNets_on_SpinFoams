@@ -14,20 +14,22 @@ class Runner:
         )
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
+    @tf.function
     def train_agent(self, batch_size, n_iterations):
-        ave_losses = []
-        for i in range(n_iterations):
+        ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+        for i in tf.range(n_iterations):
             ave_loss = self._training_step(batch_size)
-            ave_losses.append(ave_loss)
+            ave_losses = ave_losses.write(i, ave_loss)
 
-            if i % 100 == 0:
-                print(f"Iteration: {i}, Average Loss: {float(ave_loss):.5f}")
-        ave_losses = tf.concat(ave_losses, axis=0)
+            if tf.math.equal(tf.math.floormod(i, 100), 0):
+                tf.print("Iteration:",  i, "Average Loss:", ave_loss)
+        ave_losses = ave_losses.stack()
         return ave_losses
 
+    @tf.function
     def _training_step(self, batch_size):
         ts1, ba1, fa1 = self._generate_backward_trajectories(batch_size)
-        ts2, ba2, fa2 = self._generate_forward_trajectories(batch_size, training=True)
+        ts2, ba2, fa2 = self._generate_forward_trajectories(batch_size, training=tf.constant(True))
 
         final_positions = tf.concat([ts1[0], ts2[-1]], axis=0)
         rewards = self.env.get_rewards(final_positions)
@@ -55,6 +57,7 @@ class Runner:
         ave_loss = tf.reduce_mean(loss)
         return ave_loss
 
+    @tf.function
     def _generate_backward_trajectories(self, batch_size):
         current_position = self.env.reset_for_backward_sampling(batch_size)
 
@@ -62,36 +65,42 @@ class Runner:
             shape=(batch_size, self.agent.backward_action_dim), dtype=tf.int32
         )
 
-        trajectories = [current_position]
-        backward_actions = []
-        forward_actions = [no_coord_action]
+        trajectories = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
+        backward_actions = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
+        forward_actions = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
 
+        trajectories = trajectories.write(0, current_position)
+        forward_actions = forward_actions.write(0, no_coord_action)
+
+        i = tf.constant(0)
         at_least_one_ongoing = tf.constant(True)
         while at_least_one_ongoing:
             action = self.agent.act_backward(current_position)
             current_position = self.env.step_backward(current_position, action)
 
-            trajectories.append(current_position)
-            backward_actions.append(action)
-            forward_actions.append(action)
+            trajectories = trajectories.write(i+1, current_position)
+            backward_actions = backward_actions.write(i, action)
+            forward_actions = forward_actions.write(i+1, action)
 
+            i += 1
             at_least_one_ongoing = tf.math.reduce_any(
                 tf.math.not_equal(current_position, 0)
             )
-        backward_actions.append(no_coord_action)
+        backward_actions = backward_actions.write(i, no_coord_action)
 
-        trajectory_max_len = len(trajectories)
+        trajectory_max_len = i + 1
         stop_actions = tf.scatter_nd(
             indices=[[0]],
             updates=tf.ones(shape=(1, batch_size, 1), dtype=tf.int32),
             shape=(trajectory_max_len, batch_size, 1)
         )
-        trajectories = tf.stack(trajectories)
-        backward_actions = tf.stack(backward_actions)
-        forward_actions = tf.concat([tf.stack(forward_actions), stop_actions], axis=2)
+        trajectories = trajectories.stack()
+        backward_actions = backward_actions.stack()
+        forward_actions = tf.concat([forward_actions.stack(), stop_actions], axis=2)
         return trajectories, backward_actions, forward_actions
 
-    def _generate_forward_trajectories(self, batch_size, training=False):
+    @tf.function
+    def _generate_forward_trajectories(self, batch_size, training):
         current_position = self.env.reset_for_forward_sampling(batch_size)
         is_still_sampling = tf.ones(
             shape=(batch_size, 1), dtype=tf.int32
@@ -100,26 +109,32 @@ class Runner:
         no_coord_action = tf.zeros(
             shape=(batch_size, self.agent.forward_action_dim), dtype=tf.int32
         )
-        trajectories = [current_position]
-        forward_actions = []
-        backward_actions = [no_coord_action]
 
+        trajectories = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
+        backward_actions = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
+        forward_actions = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
+
+        trajectories = trajectories.write(0, current_position)
+        backward_actions = backward_actions.write(0, no_coord_action)
+
+        i = tf.constant(0)
         at_least_one_ongoing = tf.constant(True)
         while at_least_one_ongoing:
             action, is_still_sampling = self.agent.act_forward(
-                current_position, is_still_sampling, training=training
+                current_position, is_still_sampling, training
             )
             current_position = self.env.step_forward(current_position, action)
 
-            trajectories.append(current_position)
-            forward_actions.append(action)
-            backward_actions.append(action)
+            trajectories = trajectories.write(i + 1, current_position)
+            backward_actions = backward_actions.write(i + 1, action)
+            forward_actions = forward_actions.write(i, action)
 
+            i += 1
             at_least_one_ongoing = tf.math.reduce_any(
                 tf.math.equal(is_still_sampling, 1)
             )
 
-        trajectories = tf.stack(trajectories[:-1])
-        forward_actions = tf.stack(forward_actions)
-        backward_actions = tf.stack(backward_actions[:-1])[:, :, :-1]
+        trajectories = trajectories.stack()[:-1]
+        forward_actions = forward_actions.stack()
+        backward_actions = backward_actions.stack()[:-1, :, :-1]
         return trajectories, backward_actions, forward_actions
