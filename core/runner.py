@@ -20,7 +20,11 @@ class Runner:
         )
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
-    @tf.function
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=None, dtype=tf.int32),
+        tf.TensorSpec(shape=None, dtype=tf.int32),
+        tf.TensorSpec(shape=None, dtype=tf.int32),
+    ])
     def train_agent(self, batch_size, n_iterations, check_loss_every_n_iterations):
         ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
         for i in tf.range(n_iterations):
@@ -32,7 +36,7 @@ class Runner:
         ave_losses = ave_losses.stack()
         return ave_losses
 
-    @tf.function
+    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def generate_samples_from_agent(self, batch_size):
         current_position = self.env.reset_for_forward_sampling(batch_size)
         is_still_sampling = tf.ones(
@@ -51,18 +55,15 @@ class Runner:
             )
         return current_position
 
-    def _get_normalized_agent_sample_distribution(self, batch_size):
+    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
+    def get_normalized_agent_sample_distribution(self, batch_size):
         samples = self.generate_samples_from_agent(batch_size)
         sample_counts = self._count_sampled_grid_coordinates(samples)
 
-        # normalized_env_rewards = self.env.rewards / tf.math.reduce_sum(self.env.rewards)
         normalized_agent_sample_distribution = sample_counts / tf.math.reduce_sum(sample_counts)
-
-        # abs_error = tf.math.abs(normalized_agent_sample_distribution - normalized_env_rewards)
-        # return abs_error, normalized_agent_sample_distribution, normalized_env_rewards
         return normalized_agent_sample_distribution
 
-    @tf.function
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
     def _count_sampled_grid_coordinates(self, samples):
         n_samples = tf.shape(samples)[0]
         zeros = tf.zeros(shape=[self.env.grid_length] * self.env.grid_dimension, dtype=tf.float32)
@@ -70,7 +71,7 @@ class Runner:
         counts = tf.tensor_scatter_nd_add(zeros, samples, updates)
         return counts
 
-    @tf.function
+    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def _training_step(self, batch_size):
         ts1, ba1, fa1 = self._generate_backward_trajectories(batch_size)
         ts2, ba2, fa2 = self._generate_forward_trajectories(batch_size, training=tf.constant(True))
@@ -95,13 +96,17 @@ class Runner:
 
 
     @staticmethod
-    @tf.function
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=None, dtype=tf.float32),
+        tf.TensorSpec(shape=(None, 1), dtype=tf.float32),
+        tf.TensorSpec(shape=(None, 1), dtype=tf.float32),
+    ])
     def _calculate_ave_loss(log_Z0, log_rewards, action_log_proba_ratios):
         loss = tf.math.square(log_Z0 - log_rewards + action_log_proba_ratios)
         ave_loss = tf.reduce_mean(loss)
         return ave_loss
 
-    @tf.function
+    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def _generate_backward_trajectories(self, batch_size):
         current_position = self.env.reset_for_backward_sampling(batch_size)
 
@@ -143,7 +148,10 @@ class Runner:
         forward_actions = tf.concat([forward_actions.stack(), stop_actions], axis=2)
         return trajectories, backward_actions, forward_actions
 
-    @tf.function
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=None, dtype=tf.int32),
+        tf.TensorSpec(shape=None, dtype=tf.bool)
+    ])
     def _generate_forward_trajectories(self, batch_size, training):
         current_position = self.env.reset_for_forward_sampling(batch_size)
         is_still_sampling = tf.ones(
