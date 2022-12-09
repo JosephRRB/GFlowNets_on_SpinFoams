@@ -7,8 +7,8 @@ from core.agent import Agent
 class Runner:
     def __init__(self, grid_dimension, grid_length,
                  main_layer_hidden_nodes, branch1_hidden_nodes, branch2_hidden_nodes,
+                 learning_rate_schedule,
                  exploration_rate=0.5,
-                 learning_rate=0.0005
                  ):
         self.agent = Agent(
             grid_dimension, grid_length,
@@ -18,7 +18,11 @@ class Runner:
         self.env = HypergridEnvironment(
             grid_dimension=grid_dimension, grid_length=grid_length
         )
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+        if isinstance(learning_rate_schedule, dict):
+            lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(**learning_rate_schedule)
+        else:
+            lr_schedule = learning_rate_schedule
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
 
     @tf.function(input_signature=[
         tf.TensorSpec(shape=None, dtype=tf.int32),
