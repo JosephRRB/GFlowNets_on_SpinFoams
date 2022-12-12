@@ -2,15 +2,19 @@ import tensorflow as tf
 
 from core.runner import Runner
 
-# 1s 773ms -> all tf.function
-# 1s 528ms -> only top tf.function
-# 530ms -> without tf.function
+
 def test_actions_correctly_correspond_to_backward_trajectories():
     grid_dim = 5
     grid_length = 8
     batch_size = 10
 
-    runner = Runner(grid_dimension=grid_dim, grid_length=grid_length)
+    runner = Runner(
+        grid_dimension=grid_dim,
+        grid_length=grid_length,
+        main_layer_hidden_nodes=[15],
+        branch1_hidden_nodes=[],
+        branch2_hidden_nodes=[]
+    )
     trajectories, backward_actions, forward_actions = runner._generate_backward_trajectories(batch_size)
 
     next_backward_positions = trajectories[:-1] - backward_actions[:-1]
@@ -25,7 +29,13 @@ def test_backward_trajectories_do_not_go_out_of_bounds():
     grid_length = 8
     batch_size = 10
 
-    runner = Runner(grid_dimension=grid_dim, grid_length=grid_length)
+    runner = Runner(
+        grid_dimension=grid_dim,
+        grid_length=grid_length,
+        main_layer_hidden_nodes=[15],
+        branch1_hidden_nodes=[],
+        branch2_hidden_nodes=[]
+    )
     trajectories, _, _ = runner._generate_backward_trajectories(batch_size)
 
     tf.debugging.assert_greater_equal(trajectories, 0)
@@ -36,7 +46,13 @@ def test_last_positions_for_backward_trajectories_are_all_0():
     grid_length = 8
     batch_size = 10
 
-    runner = Runner(grid_dimension=grid_dim, grid_length=grid_length)
+    runner = Runner(
+        grid_dimension=grid_dim,
+        grid_length=grid_length,
+        main_layer_hidden_nodes=[15],
+        branch1_hidden_nodes=[],
+        branch2_hidden_nodes=[]
+    )
     trajectories, _, _ = runner._generate_backward_trajectories(batch_size)
 
     tf.debugging.assert_equal(trajectories[-1], 0)
@@ -47,7 +63,13 @@ def test_first_forward_actions_for_backward_trajectories_are_all_stop_actions():
     grid_length = 8
     batch_size = 10
 
-    runner = Runner(grid_dimension=grid_dim, grid_length=grid_length)
+    runner = Runner(
+        grid_dimension=grid_dim,
+        grid_length=grid_length,
+        main_layer_hidden_nodes=[15],
+        branch1_hidden_nodes=[],
+        branch2_hidden_nodes=[]
+    )
     _, _, forward_actions = runner._generate_backward_trajectories(batch_size)
 
     tf.debugging.assert_equal(forward_actions[0, :, :-1], 0)
@@ -59,7 +81,13 @@ def test_last_backward_actions_for_backward_trajectories_are_all_0():
     grid_length = 8
     batch_size = 10
 
-    runner = Runner(grid_dimension=grid_dim, grid_length=grid_length)
+    runner = Runner(
+        grid_dimension=grid_dim,
+        grid_length=grid_length,
+        main_layer_hidden_nodes=[15],
+        branch1_hidden_nodes=[],
+        branch2_hidden_nodes=[]
+    )
     _, backward_actions, _ = runner._generate_backward_trajectories(batch_size)
 
     tf.debugging.assert_equal(backward_actions[-1], 0)
@@ -70,7 +98,13 @@ def test_actions_correctly_correspond_to_forward_trajectories():
     grid_length = 8
     batch_size = 10
 
-    runner = Runner(grid_dimension=grid_dim, grid_length=grid_length)
+    runner = Runner(
+        grid_dimension=grid_dim,
+        grid_length=grid_length,
+        main_layer_hidden_nodes=[15],
+        branch1_hidden_nodes=[],
+        branch2_hidden_nodes=[]
+    )
     trajectories, backward_actions, forward_actions = runner._generate_forward_trajectories(batch_size, training=False)
 
     next_forward_positions = trajectories[:-1] + forward_actions[:-1, :, :-1]
@@ -85,7 +119,13 @@ def test_forward_trajectories_do_not_go_out_of_bounds():
     grid_length = 8
     batch_size = 10
 
-    runner = Runner(grid_dimension=grid_dim, grid_length=grid_length)
+    runner = Runner(
+        grid_dimension=grid_dim,
+        grid_length=grid_length,
+        main_layer_hidden_nodes=[15],
+        branch1_hidden_nodes=[],
+        branch2_hidden_nodes=[]
+    )
     trajectories, _, _ = runner._generate_forward_trajectories(batch_size, training=False)
 
     tf.debugging.assert_less_equal(trajectories, grid_length-1)
@@ -96,7 +136,13 @@ def test_first_positions_for_forward_trajectories_are_all_0():
     grid_length = 8
     batch_size = 10
 
-    runner = Runner(grid_dimension=grid_dim, grid_length=grid_length)
+    runner = Runner(
+        grid_dimension=grid_dim,
+        grid_length=grid_length,
+        main_layer_hidden_nodes=[15],
+        branch1_hidden_nodes=[],
+        branch2_hidden_nodes=[]
+    )
     trajectories, _, _ = runner._generate_forward_trajectories(batch_size, training=False)
 
     tf.debugging.assert_equal(trajectories[0], 0)
@@ -107,7 +153,13 @@ def test_stop_action_correctly_stops_forward_trajectories():
     grid_length = 8
     batch_size = 10
 
-    runner = Runner(grid_dimension=grid_dim, grid_length=grid_length)
+    runner = Runner(
+        grid_dimension=grid_dim,
+        grid_length=grid_length,
+        main_layer_hidden_nodes=[15],
+        branch1_hidden_nodes=[],
+        branch2_hidden_nodes=[]
+    )
     trajectories, _, forward_actions = runner._generate_forward_trajectories(batch_size, training=False)
 
     stop_actions = forward_actions[:, :, -1]
@@ -126,7 +178,13 @@ def test_first_backward_actions_for_forward_trajectories_are_all_0():
     grid_length = 8
     batch_size = 10
 
-    runner = Runner(grid_dimension=grid_dim, grid_length=grid_length)
+    runner = Runner(
+        grid_dimension=grid_dim,
+        grid_length=grid_length,
+        main_layer_hidden_nodes=[15],
+        branch1_hidden_nodes=[],
+        branch2_hidden_nodes=[]
+    )
     _, backward_actions, _ = runner._generate_forward_trajectories(batch_size, training=False)
 
     tf.debugging.assert_equal(backward_actions[0], 0)
