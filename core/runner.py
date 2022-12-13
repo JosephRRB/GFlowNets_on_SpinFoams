@@ -5,9 +5,10 @@ from core.agent import Agent
 
 
 class Runner:
-    def __init__(self, grid_dimension, grid_length,
+    def __init__(self,
                  main_layer_hidden_nodes, branch1_hidden_nodes, branch2_hidden_nodes,
                  exploration_rate=0.5,
+                 grid_dimension=5, grid_length=8, environment_mode="test_grid",
                  learning_rate=0.0005
                  ):
         self.agent = Agent(
@@ -16,7 +17,8 @@ class Runner:
             exploration_rate=exploration_rate
         )
         self.env = HypergridEnvironment(
-            grid_dimension=grid_dimension, grid_length=grid_length
+            grid_dimension=grid_dimension, grid_length=grid_length,
+            environment_mode=environment_mode,
         )
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 

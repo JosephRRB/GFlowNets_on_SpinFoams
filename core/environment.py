@@ -1,37 +1,29 @@
+import os
+
 import numpy as np
 import tensorflow as tf
 
-
-class Environment:
-    def __init__(self, spin_j):
-        self.spin_j = spin_j
-        vertex_amplitudes = tf.convert_to_tensor(
-            _load_vertex_amplitudes(self.spin_j),
-            dtype=tf.float64
-        )
-        self.squared_vertex_amplitudes = tf.math.square(vertex_amplitudes)
-        self.current_state = None
-
-    def reset(self):
-        self.current_state = tf.zeros(shape=(1, 5), dtype=tf.int32)
-        return self.current_state
-
-    def step(self, action):
-        pass
-
-
-def _load_vertex_amplitudes(spin_j):
-    vertex = np.load(f"../data/EPRL_vertices/vertex_j={float(spin_j)}.npz")
-    return vertex
-
+ROOT_DIR = os.path.abspath(__file__ + "/../../")
 
 class HypergridEnvironment:
-    def __init__(self, grid_dimension, grid_length):
+    def __init__(self, grid_dimension, grid_length, environment_mode="test_grid"):
         self.grid_dimension = grid_dimension
         self.grid_length = grid_length
-        self.rewards = _generate_grid_rewards(
-            grid_dimension, grid_length, 0.001, 1, 1
-        )
+        if environment_mode == "test_grid":
+            self.rewards = _generate_grid_rewards(
+                grid_dimension, grid_length, 0.001, 1, 1
+            )
+        elif environment_mode == "spinfoam_vertex":
+            spin_j = (grid_length - 1) / 2
+            vertex_amplitudes = tf.convert_to_tensor(
+                _load_vertex_amplitudes(spin_j), dtype=tf.float64
+            )
+            self.squared_amplitudes = tf.math.square(vertex_amplitudes)
+            scale = tf.math.reduce_sum(self.squared_amplitudes)
+            self.rewards = tf.cast(self.squared_amplitudes/scale, dtype=tf.float32)
+        else:
+            NotImplementedError(
+                "'environment_mode' must either be 'test_grid' or 'spinfoam_vertex'")
 
     @tf.function
     def reset_for_backward_sampling(self, batch_size):
@@ -65,6 +57,11 @@ class HypergridEnvironment:
     def get_rewards(self, positions):
         rewards = tf.reshape(tf.gather_nd(self.rewards, positions), shape=(-1, 1))
         return rewards
+
+
+def _load_vertex_amplitudes(spin_j):
+    vertex = np.load(f"{ROOT_DIR}/data/EPRL_vertices/python/vertex_j_{spin_j}.npz")
+    return vertex
 
 
 def _generate_grid_rewards(grid_dimension, grid_length, r0, r1, r2):
