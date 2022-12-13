@@ -1,6 +1,9 @@
+import os
+
 import numpy as np
 import tensorflow as tf
 
+ROOT_DIR = os.path.abspath(__file__ + "/../../")
 
 class HypergridEnvironment:
     def __init__(self, grid_dimension, grid_length, environment_mode="test_grid"):
@@ -57,19 +60,19 @@ class HypergridEnvironment:
 
 
 def _load_vertex_amplitudes(spin_j):
-    vertex = np.load(f"../data/EPRL_vertices/python/vertex_j_{spin_j}.npz")
+    vertex = np.load(f"{ROOT_DIR}/data/EPRL_vertices/python/vertex_j_{spin_j}.npz")
     return vertex
 
 
 def _generate_grid_rewards(grid_dimension, grid_length, r0, r1, r2):
     # grid_length >= 7
-    coords_transf = tf.math.abs(tf.range(grid_length, dtype=tf.float64) / (grid_length - 1) - 0.5)
+    coords_transf = tf.math.abs(tf.range(grid_length, dtype=tf.float32) / (grid_length - 1) - 0.5)
 
-    mid_level_1d = tf.cast(tf.math.greater(coords_transf, 0.25), dtype=tf.float64)
+    mid_level_1d = tf.cast(tf.math.greater(coords_transf, 0.25), dtype=tf.float32)
     high_level_1d = tf.cast(
         tf.math.logical_and(
             tf.math.greater(coords_transf, 0.3), tf.math.less(coords_transf, 0.4)),
-        dtype=tf.float64
+        dtype=tf.float32
     )
 
     mid_level = tf.reshape(mid_level_1d, shape=[-1] + [1] * (grid_dimension - 1))
