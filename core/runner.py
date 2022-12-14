@@ -16,6 +16,9 @@ class Runner:
                  environment_mode="test_grid",
                  learning_rate=0.0005
                  ):
+        if environment_mode == "spinfoam_vertex":
+            grid_dimension = 5
+
         self.agent = Agent(
             grid_dimension, grid_length,
             main_layer_hidden_nodes=main_layer_hidden_nodes,
