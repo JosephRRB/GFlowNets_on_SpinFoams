@@ -11,9 +11,6 @@ def test_actions_correctly_correspond_to_backward_trajectories():
     runner = Runner(
         grid_dimension=grid_dim,
         grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     trajectories, backward_actions, forward_actions = runner._generate_backward_trajectories(batch_size)
 
@@ -32,9 +29,6 @@ def test_backward_trajectories_do_not_go_out_of_bounds():
     runner = Runner(
         grid_dimension=grid_dim,
         grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     trajectories, _, _ = runner._generate_backward_trajectories(batch_size)
 
@@ -49,9 +43,6 @@ def test_last_positions_for_backward_trajectories_are_all_0():
     runner = Runner(
         grid_dimension=grid_dim,
         grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     trajectories, _, _ = runner._generate_backward_trajectories(batch_size)
 
@@ -66,9 +57,6 @@ def test_first_forward_actions_for_backward_trajectories_are_all_stop_actions():
     runner = Runner(
         grid_dimension=grid_dim,
         grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     _, _, forward_actions = runner._generate_backward_trajectories(batch_size)
 
@@ -84,9 +72,6 @@ def test_last_backward_actions_for_backward_trajectories_are_all_0():
     runner = Runner(
         grid_dimension=grid_dim,
         grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     _, backward_actions, _ = runner._generate_backward_trajectories(batch_size)
 
@@ -101,9 +86,6 @@ def test_actions_correctly_correspond_to_forward_trajectories():
     runner = Runner(
         grid_dimension=grid_dim,
         grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     trajectories, backward_actions, forward_actions = runner._generate_forward_trajectories(batch_size, training=False)
 
@@ -122,9 +104,6 @@ def test_forward_trajectories_do_not_go_out_of_bounds():
     runner = Runner(
         grid_dimension=grid_dim,
         grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     trajectories, _, _ = runner._generate_forward_trajectories(batch_size, training=False)
 
@@ -139,9 +118,6 @@ def test_first_positions_for_forward_trajectories_are_all_0():
     runner = Runner(
         grid_dimension=grid_dim,
         grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     trajectories, _, _ = runner._generate_forward_trajectories(batch_size, training=False)
 
@@ -156,9 +132,6 @@ def test_stop_action_correctly_stops_forward_trajectories():
     runner = Runner(
         grid_dimension=grid_dim,
         grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     trajectories, _, forward_actions = runner._generate_forward_trajectories(batch_size, training=False)
 
@@ -181,9 +154,6 @@ def test_first_backward_actions_for_forward_trajectories_are_all_0():
     runner = Runner(
         grid_dimension=grid_dim,
         grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     _, backward_actions, _ = runner._generate_forward_trajectories(batch_size, training=False)
 

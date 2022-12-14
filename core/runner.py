@@ -6,14 +6,22 @@ from core.agent import Agent
 
 class Runner:
     def __init__(self,
-                 main_layer_hidden_nodes, branch1_hidden_nodes, branch2_hidden_nodes,
+                 main_layer_hidden_nodes=(30, 20),
+                 branch1_hidden_nodes=(10, ),
+                 branch2_hidden_nodes=(10, ),
+                 activation="swish",
                  exploration_rate=0.5,
-                 grid_dimension=5, grid_length=8, environment_mode="test_grid",
+                 grid_dimension=5,
+                 grid_length=8,
+                 environment_mode="test_grid",
                  learning_rate=0.0005
                  ):
         self.agent = Agent(
             grid_dimension, grid_length,
-            main_layer_hidden_nodes, branch1_hidden_nodes, branch2_hidden_nodes,
+            main_layer_hidden_nodes=main_layer_hidden_nodes,
+            branch1_hidden_nodes=branch1_hidden_nodes,
+            branch2_hidden_nodes=branch2_hidden_nodes,
+            activation=activation,
             exploration_rate=exploration_rate
         )
         self.env = HypergridEnvironment(

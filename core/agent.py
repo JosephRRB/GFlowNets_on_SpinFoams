@@ -6,7 +6,10 @@ class Agent:
     NEG_INF = -10000000000.0
 
     def __init__(self, env_grid_dim, env_grid_length,
-                 main_layer_hidden_nodes, branch1_hidden_nodes, branch2_hidden_nodes,
+                 main_layer_hidden_nodes=(30, 20),
+                 branch1_hidden_nodes=(10, ),
+                 branch2_hidden_nodes=(10, ),
+                 activation="swish",
                  exploration_rate=0.5
                  ):
         self.env_grid_dim = env_grid_dim
@@ -18,9 +21,10 @@ class Agent:
 
         self.log_Z0 = tf.Variable(0.0, trainable=True, name="log_Z0")
         self.policy = PolicyNetwork(
-            main_layer_nodes=[self.env_grid_length*self.env_grid_dim] + main_layer_hidden_nodes,
-            branch1_layer_nodes=branch1_hidden_nodes + [self.backward_action_dim],
-            branch2_layer_nodes=branch2_hidden_nodes + [self.forward_action_dim],
+            main_layer_nodes=[self.env_grid_length*self.env_grid_dim] + list(main_layer_hidden_nodes),
+            branch1_layer_nodes=list(branch1_hidden_nodes) + [self.backward_action_dim],
+            branch2_layer_nodes=list(branch2_hidden_nodes) + [self.forward_action_dim],
+            activation=activation
         )
 
     @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])

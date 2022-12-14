@@ -8,9 +8,6 @@ def test_agent_only_chooses_at_most_one_backward_action_per_position():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     current_position = tf.constant([
         [6, 3, 5, 0, 3],
@@ -32,9 +29,6 @@ def test_agent_does_not_choose_forbidden_backward_actions():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     current_position = tf.constant(
         [[6, 3, 0, 7, 3]] * 1000 +
@@ -56,9 +50,6 @@ def test_agent_does_not_act_backwards_if_position_is_at_origin():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     current_position = tf.zeros(shape=(1000, grid_dim), dtype=tf.int32)
     backward_actions = agent.act_backward(current_position)
@@ -73,9 +64,6 @@ def test_agent_only_chooses_one_forward_action_per_position_if_still_sampling():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     current_position = tf.constant([
         [6, 3, 7, 0, 3],
@@ -100,9 +88,6 @@ def test_agent_does_not_act_forward_if_no_longer_sampling():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     current_position = tf.constant([
         [6, 3, 7, 0, 3],
@@ -130,9 +115,6 @@ def test_agent_does_not_choose_forbidden_forward_actions():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     current_position = tf.constant(
         [[6, 3, 0, 7, 3]] * 1000 +
@@ -156,9 +138,6 @@ def test_agent_only_chooses_stop_action_if_position_is_at_grid_length_corner():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     current_position = (grid_length - 1) * tf.ones(shape=(1000, grid_dim), dtype=tf.int32)
     is_still_sampling = tf.ones(shape=(1000, 1), dtype=tf.int32)
@@ -179,9 +158,6 @@ def test_agent_correctly_updates_still_sampling_flag_if_stop_action_is_chosen():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     current_position = tf.constant(
         [[6, 3, 0, 7, 3]] * 1500,
@@ -222,9 +198,6 @@ def test_position_is_correctly_encoded():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     position = tf.constant([
         [6, 3, 5, 0, 3],
@@ -259,9 +232,6 @@ def test_action_logits_have_correct_shape():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     position = tf.constant([
         [6, 3, 5, 0, 3],
@@ -299,9 +269,6 @@ def test_forbidden_forward_actions_are_correct():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     position = tf.constant([
         [6, 3, 5, 0, 3],
@@ -326,9 +293,6 @@ def test_action_logits_are_correctly_masked():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     action_logits = tf.constant([
         [-agent.NEG_INF, -3.2, 0.4, -7.1, 5.8, -0.8],
@@ -376,9 +340,6 @@ def test_backward_actions_are_correctly_encoded():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     action_indices = tf.constant([
         [0], [1], [2], [3], [4]
@@ -403,9 +364,6 @@ def test_forward_actions_are_correctly_encoded():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     action_indices = tf.constant([
         [0], [1], [2], [3], [4], [5]
@@ -471,9 +429,6 @@ def test_logits_for_trajectories_are_properly_reshaped():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     trajectories = tf.constant([
         [
@@ -508,9 +463,6 @@ def test_logits_are_properly_normalized():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     logits = tf.constant([
         [
@@ -617,9 +569,6 @@ def test_log_probas_of_backward_actions_are_correct():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     positions = tf.constant([
         [
@@ -689,9 +638,6 @@ def test_log_probas_of_forward_actions_are_correct():
     agent = Agent(
         env_grid_dim=grid_dim,
         env_grid_length=grid_length,
-        main_layer_hidden_nodes=[15],
-        branch1_hidden_nodes=[],
-        branch2_hidden_nodes=[]
     )
     positions = tf.constant([
         [
