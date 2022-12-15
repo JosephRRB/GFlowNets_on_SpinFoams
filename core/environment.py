@@ -5,6 +5,7 @@ import tensorflow as tf
 
 ROOT_DIR = os.path.abspath(__file__ + "/../../")
 
+
 class HypergridEnvironment:
     def __init__(self, grid_dimension, grid_length, environment_mode="test_grid"):
         self.grid_dimension = grid_dimension
