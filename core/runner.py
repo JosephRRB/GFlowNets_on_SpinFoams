@@ -38,13 +38,13 @@ class Runner:
         tf.TensorSpec(shape=None, dtype=tf.int32),
         tf.TensorSpec(shape=None, dtype=tf.int32),
     ])
-    def train_agent(self, batch_size, n_iterations, check_loss_every_n_iterations):
+    def train_agent(self, batch_size, n_iterations, evaluate_every_n_iterations):
         ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
         for i in tf.range(n_iterations):
             ave_loss = self._training_step(batch_size)
             ave_losses = ave_losses.write(i, ave_loss)
 
-            if tf.math.equal(tf.math.floormod(i, check_loss_every_n_iterations), 0):
+            if tf.math.equal(tf.math.floormod(i, evaluate_every_n_iterations), 0):
                 tf.print("Iteration:",  i, "Average Loss:", ave_loss)
         ave_losses = ave_losses.stack()
         return ave_losses

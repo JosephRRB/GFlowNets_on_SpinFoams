@@ -20,8 +20,12 @@ class HypergridEnvironment:
                 _load_vertex_amplitudes(spin_j), dtype=tf.float64
             )
             self.squared_amplitudes = tf.math.square(vertex_amplitudes)
-            scale = tf.math.reduce_sum(self.squared_amplitudes)
-            self.rewards = tf.cast(self.squared_amplitudes/scale, dtype=tf.float32)
+            norm = tf.math.reduce_sum(self.squared_amplitudes)
+            normed_sq_ampl = self.squared_amplitudes / norm
+            self.theoretical_mean_dihedral_angle = _calculate_theoretical_mean_dihedral_angle(
+                normed_sq_ampl, spin_j, grid_length
+            )
+            self.rewards = tf.cast(normed_sq_ampl, dtype=tf.float32)
         else:
             NotImplementedError(
                 "'environment_mode' must either be 'test_grid' or 'spinfoam_vertex'")
@@ -87,3 +91,16 @@ def _generate_grid_rewards(grid_dimension, grid_length, r0, r1, r2):
 
     rewards = r0 + r1 * mid_level + r2 * high_level
     return rewards
+
+
+def _calculate_dihedral_angles(i1s, spin_j):
+    angles = (i1s * (i1s + 1) - 2 * spin_j * (spin_j + 1)) / (2 * spin_j * (spin_j + 1))
+    return angles
+
+@tf.function
+def _calculate_theoretical_mean_dihedral_angle(probabilities, spin_j, grid_length):
+    indices = tf.meshgrid(*[tf.range(grid_length)] * 5, indexing='ij')
+    i1s = tf.cast(indices[0], dtype=tf.float64)
+    angles = _calculate_dihedral_angles(i1s, spin_j)
+    mean_angle = tf.reduce_sum(probabilities * angles)
+    return mean_angle
