@@ -2,6 +2,14 @@ import tensorflow as tf
 
 from core.runner import Runner
 
+def test():
+    runner = Runner(
+        grid_length=8,
+        environment_mode="spinfoam_vertex"
+    )
+    distr_error, obs_error = runner.evaluate_agent(int(5e4))
+    obs_error
+
 
 def test_actions_correctly_correspond_to_backward_trajectories():
     grid_dim = 5

@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from core.environment import HypergridEnvironment
+from core.environment import HypergridEnvironment, _calculate_dihedral_angles
 from core.agent import Agent
 
 
@@ -37,17 +37,28 @@ class Runner:
         tf.TensorSpec(shape=None, dtype=tf.int32),
         tf.TensorSpec(shape=None, dtype=tf.int32),
         tf.TensorSpec(shape=None, dtype=tf.int32),
+        tf.TensorSpec(shape=None, dtype=tf.int32),
     ])
-    def train_agent(self, batch_size, n_iterations, evaluate_every_n_iterations):
+    def train_agent(self, half_batch_size, n_iterations, evaluate_every_n_iterations, evaluation_batch_size):
         ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+        ave_distr_errors = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+        agent_obs = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+        eval_i = 0
         for i in tf.range(n_iterations):
-            ave_loss = self._training_step(batch_size)
+            ave_loss = self._training_step(half_batch_size)
             ave_losses = ave_losses.write(i, ave_loss)
 
             if tf.math.equal(tf.math.floormod(i, evaluate_every_n_iterations), 0):
                 tf.print("Iteration:",  i, "Average Loss:", ave_loss)
+                distr_ave_l1_error, agent_observable = self.evaluate_agent(evaluation_batch_size)
+                ave_distr_errors = ave_distr_errors.write(eval_i, distr_ave_l1_error)
+                agent_obs = agent_obs.write(eval_i, agent_observable)
+                eval_i += 1
+
         ave_losses = ave_losses.stack()
-        return ave_losses
+        ave_distr_errors = ave_distr_errors.stack()
+        agent_obs = agent_obs.stack()
+        return ave_losses, ave_distr_errors, agent_obs
 
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def generate_samples_from_agent(self, batch_size):
@@ -68,13 +79,29 @@ class Runner:
             )
         return current_position
 
-    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
-    def get_normalized_agent_sample_distribution(self, batch_size):
-        samples = self.generate_samples_from_agent(batch_size)
-        sample_counts = self._count_sampled_grid_coordinates(samples)
+    # @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
+    # def get_normalized_agent_sample_distribution(self, batch_size):
+    #     samples = self.generate_samples_from_agent(batch_size)
+    #     sample_counts = self._count_sampled_grid_coordinates(samples)
+    #
+    #     normalized_agent_sample_distribution = sample_counts / tf.math.reduce_sum(sample_counts)
+    #     return normalized_agent_sample_distribution
 
-        normalized_agent_sample_distribution = sample_counts / tf.math.reduce_sum(sample_counts)
-        return normalized_agent_sample_distribution
+    def evaluate_agent(self, batch_size):
+        samples = self.generate_samples_from_agent(batch_size)
+
+        sample_counts = self._count_sampled_grid_coordinates(samples)
+        agent_distr = sample_counts / tf.math.reduce_sum(sample_counts)
+        distr_ave_l1_error = tf.math.reduce_mean(tf.abs(agent_distr - self.env.rewards))
+
+        i1s = tf.cast(samples[:, 0], dtype=tf.float32)
+        agent_observable = tf.math.reduce_mean(
+            _calculate_dihedral_angles(i1s, self.env.spin_j)
+        )
+        # observable_l1_error = tf.abs(
+        #     agent_ave_dihedral_angle - self.env.theoretical_ave_dihedral_angle
+        # )
+        return distr_ave_l1_error, agent_observable
 
     @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
     def _count_sampled_grid_coordinates(self, samples):
@@ -85,9 +112,9 @@ class Runner:
         return counts
 
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
-    def _training_step(self, batch_size):
-        ts1, ba1, fa1 = self._generate_backward_trajectories(batch_size)
-        ts2, ba2, fa2 = self._generate_forward_trajectories(batch_size, training=tf.constant(True))
+    def _training_step(self, half_batch_size):
+        ts1, ba1, fa1 = self._generate_backward_trajectories(half_batch_size)
+        ts2, ba2, fa2 = self._generate_forward_trajectories(half_batch_size, training=tf.constant(True))
 
         final_positions = tf.concat([ts1[0], ts2[-1]], axis=0)
         rewards = self.env.get_rewards(final_positions)
