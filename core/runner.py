@@ -39,23 +39,32 @@ class Runner:
         tf.TensorSpec(shape=None, dtype=tf.int32),
         tf.TensorSpec(shape=None, dtype=tf.int32),
     ])
-    def train_agent(self, half_batch_size, n_iterations, evaluate_every_n_iterations, evaluation_batch_size):
+    def train_agent(self, half_batch_size, n_iterations, evaluate_every_n_iterations, evaluation_batch_sizes):
         ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+        ave_distribution_errors = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
         observables = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
-        eval_i = 0
+
+        distr_errors, obss = self.evaluate_agent_on_batches(evaluation_batch_sizes)
+        ave_distribution_errors = ave_distribution_errors.write(0, distr_errors)
+        observables = observables.write(0, obss)
+
+        eval_i = 1
         for i in tf.range(n_iterations):
             ave_loss = self._training_step(half_batch_size)
             ave_losses = ave_losses.write(i, ave_loss)
 
             if tf.math.equal(tf.math.floormod(i+1, evaluate_every_n_iterations), 0):
                 tf.print("Nth iteration:",  i+1, "Average Loss:", ave_loss)
-                agent_observable = self.calculate_observable_from_agent(evaluation_batch_size)
-                observables = observables.write(eval_i, agent_observable)
+                # agent_observable = self.calculate_observable_from_agent(evaluation_batch_size)
+                distr_errors, obss = self.evaluate_agent_on_batches(evaluation_batch_sizes)
+                ave_distribution_errors = ave_distribution_errors.write(eval_i, distr_errors)
+                observables = observables.write(eval_i, obss)
                 eval_i += 1
 
         ave_losses = ave_losses.stack()
+        ave_distribution_errors = ave_distribution_errors.stack()
         observables = observables.stack()
-        return ave_losses, observables
+        return ave_losses, ave_distribution_errors, observables
 
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def generate_samples_from_agent(self, batch_size):
@@ -84,30 +93,44 @@ class Runner:
     #     normalized_agent_sample_distribution = sample_counts / tf.math.reduce_sum(sample_counts)
     #     return normalized_agent_sample_distribution
 
-    # def evaluate_agent(self, batch_size):
-    #     samples = self.generate_samples_from_agent(batch_size)
-    #
-    #     sample_counts = self._count_sampled_grid_coordinates(samples)
-    #     agent_distr = sample_counts / tf.math.reduce_sum(sample_counts)
-    #     distr_ave_l1_error = tf.math.reduce_mean(tf.abs(agent_distr - self.env.rewards))
-    #
-    #     i1s = tf.cast(samples[:, 0], dtype=tf.float32)
-    #     agent_observable = tf.math.reduce_mean(
-    #         _calculate_dihedral_angles(i1s, self.env.spin_j)
-    #     )
-    #     # observable_l1_error = tf.abs(
-    #     #     agent_ave_dihedral_angle - self.env.theoretical_ave_dihedral_angle
-    #     # )
-    #     return distr_ave_l1_error, agent_observable
-
-    def calculate_observable_from_agent(self, batch_size):
+    def evaluate_agent(self, batch_size):
         samples = self.generate_samples_from_agent(batch_size)
+
+        sample_counts = self._count_sampled_grid_coordinates(samples)
+        agent_distr = sample_counts / tf.math.reduce_sum(sample_counts)
+        distr_ave_l1_error = tf.math.reduce_mean(tf.abs(agent_distr - self.env.rewards))
+
         i1s = tf.cast(samples[:, 0], dtype=tf.float32)
         agent_observable = tf.math.reduce_mean(
             _calculate_dihedral_angles(i1s, self.env.spin_j)
         )
-        return agent_observable
+        # observable_l1_error = tf.abs(
+        #     agent_ave_dihedral_angle - self.env.theoretical_ave_dihedral_angle
+        # )
+        return distr_ave_l1_error, agent_observable
 
+    # def calculate_observable_from_agent(self, batch_size):
+    #     samples = self.generate_samples_from_agent(batch_size)
+    #     i1s = tf.cast(samples[:, 0], dtype=tf.float32)
+    #     agent_observable = tf.math.reduce_mean(
+    #         _calculate_dihedral_angles(i1s, self.env.spin_j)
+    #     )
+    #     return agent_observable
+
+    def evaluate_agent_on_batches(self, batch_sizes):
+        distr_errors = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+        observables = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+
+        ind = 0
+        for batch_size in batch_sizes:
+            distr_ave_l1_error, agent_observable = self.evaluate_agent(batch_size)
+            distr_errors = distr_errors.write(ind, distr_ave_l1_error)
+            observables = observables.write(ind, agent_observable)
+            ind += 1
+
+        distr_errors = distr_errors.stack()
+        observables = observables.stack()
+        return distr_errors, observables
 
     @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
     def _count_sampled_grid_coordinates(self, samples):
