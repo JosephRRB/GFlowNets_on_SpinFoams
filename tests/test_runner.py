@@ -3,12 +3,26 @@ import tensorflow as tf
 from core.runner import Runner
 
 def test():
+    # tf.config.run_functions_eagerly(True)
     runner = Runner(
         grid_length=8,
+        main_layer_hidden_nodes=(30, 20),
+        branch1_hidden_nodes=(),
+        branch2_hidden_nodes=(),
+        activation="swish",
+        exploration_rate=0.5,
+        learning_rate=0.01,
         environment_mode="spinfoam_vertex"
     )
-    distr_error, obs_error = runner.evaluate_agent(int(5e4))
-    obs_error
+    half_batch_size = tf.constant(500)
+    n_iterations = tf.constant(10)
+
+    evaluate_every_n_iterations = tf.constant(2)
+    evaluation_batch_sizes = tf.constant([int(1e4), int(5e4), int(1e5), int(5e5)])
+
+    ave_losses, distr_errors, agent_obss = runner.train_agent(
+        half_batch_size, n_iterations, evaluate_every_n_iterations, evaluation_batch_sizes
+    )
 
 
 def test_actions_correctly_correspond_to_backward_trajectories():
