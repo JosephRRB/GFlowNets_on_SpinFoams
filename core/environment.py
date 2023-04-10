@@ -7,6 +7,31 @@ ROOT_DIR = os.path.abspath(__file__ + "/../../")
 
 
 class HypergridEnvironment:
+    """
+    This class creates the hypergrid environment which the GFlowNet agent
+    interacts with
+
+    Parameters:
+    ----------
+        grid_dimension: (int)
+                        Dimensionality of the hypergrid. Must correctly match
+                        the number of free intertwiners if environment_mode ==
+                        "spinfoam_vertex"
+        grid_length:    (int)
+                        Length of the grid in one dimension. All the lengths
+                        are equal in all dimensions
+        environment_mode: (str)
+                        Can be "test_grid" or "spinfoam_vertex"
+                        - "test_grid" implements the rewards as specified in
+                            https://arxiv.org/abs/2106.04399 and stores them
+                            in self.rewards
+                        - "spinfoam_vertex" loads the precalculated amplitudes
+                            for a single vertex, calculates the corresponding
+                            probabilities, and stores them in self.rewards
+
+    TODO: Should allow user to use their own queryable reward function (without
+            needing to precalculate all the rewards)
+    """
     def __init__(self, grid_dimension, grid_length, environment_mode="test_grid"):
         self.grid_dimension = grid_dimension
         self.grid_length = grid_length
@@ -61,6 +86,7 @@ class HypergridEnvironment:
 
     @tf.function
     def get_rewards(self, positions):
+        "Get the corresponding rewards for positions"
         rewards = tf.reshape(tf.gather_nd(self.rewards, positions), shape=(-1, 1))
         return rewards
 
