@@ -58,6 +58,7 @@ class HypergridEnvironment:
 
     @tf.function
     def reset_for_backward_sampling(self, batch_size):
+        """Generate random positions in the hypergrid of size batch_size"""
         positions = tf.random.uniform(
             shape=(batch_size, self.grid_dimension),
             minval=0, maxval=self.grid_length, dtype=tf.int32
@@ -66,6 +67,7 @@ class HypergridEnvironment:
 
     @tf.function
     def reset_for_forward_sampling(self, batch_size):
+        """Generate positions at the hypergrid origin of size batch_size"""
         positions = tf.zeros(
             shape=(batch_size, self.grid_dimension),
             dtype=tf.int32
@@ -86,7 +88,7 @@ class HypergridEnvironment:
 
     @tf.function
     def get_rewards(self, positions):
-        "Get the corresponding rewards for positions"
+        """Get the corresponding rewards for positions"""
         rewards = tf.reshape(tf.gather_nd(self.rewards, positions), shape=(-1, 1))
         return rewards
 
