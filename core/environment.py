@@ -94,7 +94,7 @@ class HypergridEnvironment:
 
 
 def _load_vertex_amplitudes(spin_j):
-    vertex = np.load(f"{ROOT_DIR}/data/EPRL_vertices/python/vertex_j_{spin_j}.npz")
+    vertex = np.load(f"{ROOT_DIR}/data/EPRL_vertices/Python/Dl_20/vertex_j_{spin_j}.npz")
     return vertex
 
 
