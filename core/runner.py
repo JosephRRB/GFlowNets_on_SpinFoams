@@ -3,7 +3,6 @@ import tensorflow as tf
 from core.environment import HypergridEnvironment, _calculate_dihedral_angles
 from core.agent import Agent
 
-
 class Runner:
     def __init__(self,
                  main_layer_hidden_nodes=(30, 20),
@@ -43,6 +42,7 @@ class Runner:
         ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
         distr_js_dists = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
         observables = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+        samples = tf.TensorArray(dtype=tf.int8, size=0, dynamic_size=True)
 
         # distr_errors, obss = self.evaluate_agent_on_batches(evaluation_batch_sizes)
         distr_js_dist, obs = self.evaluate_agent(evaluation_batch_size)
@@ -66,6 +66,8 @@ class Runner:
         ave_losses = ave_losses.stack()
         distr_js_dists = distr_js_dists.stack()
         observables = observables.stack()
+        samples = samples.stack()
+        
         return ave_losses, distr_js_dists, observables
 
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
@@ -97,6 +99,8 @@ class Runner:
 
     def evaluate_agent(self, batch_size):
         samples = self.generate_samples_from_agent(batch_size)
+        
+        print(samples.numpy())
 
         sample_counts = self._count_sampled_grid_coordinates(samples)
         agent_distr = sample_counts / tf.math.reduce_sum(sample_counts)
