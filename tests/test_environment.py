@@ -14,7 +14,8 @@ def test_loaded_amplitude_values_are_correct():
     vertex_amplitudes = _load_vertex_amplitudes(spin_j)
 
     i1, i2, i3, i4, i5 = 0, 3, 0, 2, 0
-    expected_amplitude = -7.021548787502716e-13
+    # From Python_notebook.ipynb
+    expected_amplitude = -5.071973704515683e-13
     vertex_amplitude = vertex_amplitudes[i1, i2, i3, i4, i5]
 
     assert vertex_amplitude == expected_amplitude
@@ -27,7 +28,8 @@ def test_stored_squared_amplitudes_are_correct():
     )
 
     i1, i2, i3, i4, i5 = 0, 3, 0, 2, 0
-    expected_amplitude = -7.021548787502716e-13
+    # From Python_notebook.ipynb
+    expected_amplitude = -5.071973704515683e-13
     expected_squared_amplitude = expected_amplitude**2
     stored_squared_amplitude = env.squared_amplitudes[i1, i2, i3, i4, i5]
 
