@@ -33,12 +33,12 @@ class Runner:
         )
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
-    @tf.function(input_signature=[
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-    ])
+    # @tf.function(input_signature=[
+    #     tf.TensorSpec(shape=None, dtype=tf.int32),
+    #     tf.TensorSpec(shape=None, dtype=tf.int32),
+    #     tf.TensorSpec(shape=None, dtype=tf.int32),
+    #     tf.TensorSpec(shape=None, dtype=tf.int32),
+    # ])
     def train_agent(self, half_batch_size, n_iterations, evaluate_every_n_iterations, evaluation_batch_size):
         ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
         distr_js_dists = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
@@ -146,7 +146,7 @@ class Runner:
         counts = tf.tensor_scatter_nd_add(zeros, samples, updates)
         return counts
 
-    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
+    # @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def _training_step(self, half_batch_size):
         ts1, ba1, fa1 = self._generate_backward_trajectories(half_batch_size)
         ts2, ba2, fa2 = self._generate_forward_trajectories(half_batch_size, training=tf.constant(True))
@@ -171,17 +171,17 @@ class Runner:
 
 
     @staticmethod
-    @tf.function(input_signature=[
-        tf.TensorSpec(shape=None, dtype=tf.float32),
-        tf.TensorSpec(shape=(None, 1), dtype=tf.float32),
-        tf.TensorSpec(shape=(None, 1), dtype=tf.float32),
-    ])
+    # @tf.function(input_signature=[
+    #     tf.TensorSpec(shape=None, dtype=tf.float32),
+    #     tf.TensorSpec(shape=(None, 1), dtype=tf.float32),
+    #     tf.TensorSpec(shape=(None, 1), dtype=tf.float32),
+    # ])
     def _calculate_ave_loss(log_Z0, log_rewards, action_log_proba_ratios):
         loss = tf.math.square(log_Z0 - log_rewards + action_log_proba_ratios)
         ave_loss = tf.reduce_mean(loss)
         return ave_loss
 
-    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
+    # @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def _generate_backward_trajectories(self, batch_size):
         current_position = self.env.reset_for_backward_sampling(batch_size)
 
@@ -223,10 +223,10 @@ class Runner:
         forward_actions = tf.concat([forward_actions.stack(), stop_actions], axis=2)
         return trajectories, backward_actions, forward_actions
 
-    @tf.function(input_signature=[
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.bool)
-    ])
+    # @tf.function(input_signature=[
+    #     tf.TensorSpec(shape=None, dtype=tf.int32),
+    #     tf.TensorSpec(shape=None, dtype=tf.bool)
+    # ])
     def _generate_forward_trajectories(self, batch_size, training):
         current_position = self.env.reset_for_forward_sampling(batch_size)
         is_still_sampling = tf.ones(

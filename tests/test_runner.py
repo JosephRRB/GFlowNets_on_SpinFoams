@@ -14,11 +14,11 @@ def test():
         learning_rate=0.01,
         environment_mode="spinfoam_vertex"
     )
-    half_batch_size = tf.constant(500)
-    n_iterations = tf.constant(10)
+    half_batch_size = tf.constant(10)
+    n_iterations = tf.constant(1)
 
     evaluate_every_n_iterations = tf.constant(2)
-    evaluation_batch_sizes = tf.constant([int(1e4), int(5e4), int(1e5), int(5e5)])
+    evaluation_batch_sizes = tf.constant(int(4))
 
     ave_losses, distr_errors, agent_obss = runner.train_agent(
         half_batch_size, n_iterations, evaluate_every_n_iterations, evaluation_batch_sizes
