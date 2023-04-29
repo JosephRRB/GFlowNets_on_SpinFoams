@@ -57,15 +57,6 @@ class HypergridEnvironment:
                 "'environment_mode' must either be 'test_grid' or 'spinfoam_vertex'")
 
     @tf.function
-    def reset_for_backward_sampling(self, batch_size):
-        """Generate random positions in the hypergrid of size batch_size"""
-        positions = tf.random.uniform(
-            shape=(batch_size, self.grid_dimension),
-            minval=0, maxval=self.grid_length, dtype=tf.int32
-        )
-        return positions
-
-    @tf.function
     def reset_for_forward_sampling(self, batch_size):
         """Generate positions at the hypergrid origin of size batch_size"""
         positions = tf.zeros(
@@ -73,12 +64,6 @@ class HypergridEnvironment:
             dtype=tf.int32
         )
         return positions
-
-    @staticmethod
-    @tf.function
-    def step_backward(current_position, back_action):
-        new_position = current_position - back_action
-        return new_position
 
     @staticmethod
     @tf.function

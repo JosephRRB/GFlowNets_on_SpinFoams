@@ -2,62 +2,6 @@ import tensorflow as tf
 from core.agent import Agent
 
 
-def test_agent_only_chooses_at_most_one_backward_action_per_position():
-    grid_dim = 5
-    grid_length = 8
-    agent = Agent(
-        env_grid_dim=grid_dim,
-        env_grid_length=grid_length,
-    )
-    current_position = tf.constant([
-        [6, 3, 5, 0, 3],
-        [0, 0, 0, 0, 0],
-        [1, 7, 4, 2, 0],
-    ], dtype=tf.int32)
-    backward_actions = agent.act_backward(current_position)
-
-    n_actions = tf.math.reduce_sum(backward_actions, axis=1)
-    expected = tf.constant([1, 0, 1], dtype=tf.int32)
-
-    tf.debugging.assert_equal(n_actions, expected)
-
-
-def test_agent_does_not_choose_forbidden_backward_actions():
-    # This test is not strict
-    grid_dim = 5
-    grid_length = 8
-    agent = Agent(
-        env_grid_dim=grid_dim,
-        env_grid_length=grid_length,
-    )
-    current_position = tf.constant(
-        [[6, 3, 0, 7, 3]] * 1000 +
-        [[1, 0, 5, 4, 0]] * 1000,
-        dtype=tf.int32
-    )
-    backward_actions = agent.act_backward(current_position)
-
-    chosen_actions_1 = set(tf.where(backward_actions[:1000, :])[:, 1].numpy())
-    chosen_actions_2 = set(tf.where(backward_actions[1000:, :])[:, 1].numpy())
-
-    assert chosen_actions_1.issubset({0, 1, 3, 4})
-    assert chosen_actions_2.issubset({0, 2, 3})
-
-
-def test_agent_does_not_act_backwards_if_position_is_at_origin():
-    grid_dim = 5
-    grid_length = 8
-    agent = Agent(
-        env_grid_dim=grid_dim,
-        env_grid_length=grid_length,
-    )
-    current_position = tf.zeros(shape=(1000, grid_dim), dtype=tf.int32)
-    backward_actions = agent.act_backward(current_position)
-
-    expected = tf.zeros(shape=current_position.shape, dtype=tf.int32)
-    tf.debugging.assert_equal(backward_actions, expected)
-
-
 def test_agent_only_chooses_one_forward_action_per_position_if_still_sampling():
     grid_dim = 5
     grid_length = 8
@@ -334,30 +278,6 @@ def test_forbidden_actions_are_not_chosen():
     assert 3 not in set(action_indices[1000:, 0].numpy())
 
 
-def test_backward_actions_are_correctly_encoded():
-    grid_dim = 5
-    grid_length = 8
-    agent = Agent(
-        env_grid_dim=grid_dim,
-        env_grid_length=grid_length,
-    )
-    action_indices = tf.constant([
-        [0], [1], [2], [3], [4]
-    ], dtype=tf.int64)
-    encoded_actions = agent._encode_backward_actions(action_indices)
-
-    expected = tf.constant([
-        [1, 0, 0, 0, 0],
-        [0, 1, 0, 0, 0],
-        [0, 0, 1, 0, 0],
-        [0, 0, 0, 1, 0],
-        [0, 0, 0, 0, 1],
-    ])
-
-    assert encoded_actions.shape == (action_indices.shape[0], agent.backward_action_dim)
-    tf.debugging.assert_equal(encoded_actions, expected)
-
-
 def test_forward_actions_are_correctly_encoded():
     grid_dim = 5
     grid_length = 8
@@ -381,21 +301,6 @@ def test_forward_actions_are_correctly_encoded():
 
     assert encoded_actions.shape == (action_indices.shape[0], agent.forward_action_dim)
     tf.debugging.assert_equal(encoded_actions, expected)
-
-
-def test_still_sampling_flag_is_0_if_no_available_backward_action():
-    action_mask = tf.constant([
-        [True, True, True, True, True],
-        [False, False, False, False, False],
-        [False, True, False, True, False],
-    ])
-    is_still_sampling = Agent._check_if_able_to_act_backward(action_mask)
-    expected = tf.constant([
-        [0], [1], [1]
-    ])
-
-    assert is_still_sampling.shape == (action_mask.shape[0], 1)
-    tf.debugging.assert_equal(is_still_sampling, expected)
 
 
 def test_still_sampling_flag_becomes_0_if_stop_action_is_chosen():
