@@ -1,7 +1,14 @@
+import os
+
 import tensorflow as tf
+import numpy as np
 
 from core.environment import HypergridEnvironment, _calculate_dihedral_angles
 from core.agent import Agent
+
+ROOT_DIR = os.path.abspath(__file__ + "/../../")
+WORKING_DIR = f"{ROOT_DIR}/working_directory"
+os.makedirs(WORKING_DIR, exist_ok=True)
 
 class Runner:
     def __init__(self,
@@ -32,18 +39,18 @@ class Runner:
         )
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
-    @tf.function(input_signature=[
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-    ])
     def train_agent(
             self, batch_size, n_iterations, check_loss_every_n_iterations
     ):
         ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
 
         for i in tf.range(n_iterations):
-            ave_loss = self._training_step(batch_size)
+            ave_loss, terminal_states = self._training_step(batch_size)
+            np.savetxt(
+                f"{WORKING_DIR}/Epoch #{i+1} Training Samples.csv",
+                terminal_states.numpy(), delimiter=","
+            )
+
             ave_losses = ave_losses.write(i, ave_loss)
 
             if tf.math.equal(tf.math.floormod(i+1, check_loss_every_n_iterations), 0):
@@ -107,9 +114,8 @@ class Runner:
             self._generate_forward_trajectories(
                 batch_size, training=tf.constant(True)
             )
-        final_positions = trajectories[-1]
-        rewards = self.env.get_rewards(final_positions)
-        # save final_positions
+        terminal_states = trajectories[-1]
+        rewards = self.env.get_rewards(terminal_states)
         with tf.GradientTape() as tape:
             action_log_proba_ratios = \
                 self.agent.calculate_action_log_probability_ratio(
@@ -127,7 +133,7 @@ class Runner:
         self.optimizer.apply_gradients(
             zip(grads, self.agent.policy.trainable_weights + [self.agent.log_Z0])
         )
-        return ave_loss
+        return ave_loss, terminal_states
 
 
     @staticmethod
