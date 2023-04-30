@@ -1,14 +1,14 @@
-# import os
+import os
+from datetime import datetime
 
 import tensorflow as tf
 import numpy as np
 
-from core.environment import HypergridEnvironment, _calculate_dihedral_angles
+from core.environment import HypergridEnvironment
 from core.agent import Agent
 
-# ROOT_DIR = os.path.abspath(__file__ + "/../../")
-# WORKING_DIR = f"{ROOT_DIR}/working_directory"
-# os.makedirs(WORKING_DIR, exist_ok=True)
+ROOT_DIR = os.path.abspath(__file__ + "/../../")
+WORKING_DIR = f"{ROOT_DIR}/generated_samples_during_training"
 
 class Runner:
     def __init__(self,
@@ -39,33 +39,50 @@ class Runner:
         )
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
-    @tf.function(input_signature=[
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-    ])
     def train_agent(
-            self, batch_size, n_iterations, check_loss_every_n_iterations
+            self, training_batch_size, n_iterations,
+            evaluation_batch_size, generate_samples_every_m_training_samples,
+            directory_for_generated_samples=WORKING_DIR
     ):
+        training_run_datetime = datetime.now().strftime("%B %d, %Y at %H:%M:%S")
+        filepath = (
+            f"{directory_for_generated_samples}/"
+            f"Training run on {training_run_datetime}"
+        )
+        os.makedirs(filepath, exist_ok=True)
+
         ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
-        training_samples = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
+        if generate_samples_every_m_training_samples % training_batch_size != 0:
+            raise ValueError(
+                f"Evaluate only in multiples of "
+                f"training_batch_size={training_batch_size}"
+            )
 
         for i in tf.range(n_iterations):
-            ave_loss, terminal_states = self._training_step(batch_size)
-            # np.savetxt(
-            #     f"{WORKING_DIR}/Epoch #{i+1} Training Samples.csv",
-            #     terminal_states.numpy(), delimiter=","
-            # )
-
+            ave_loss = self._training_step(training_batch_size)
             ave_losses = ave_losses.write(i, ave_loss)
-            training_samples = training_samples.write(i, terminal_states)
 
-            if tf.math.equal(tf.math.floormod(i+1, check_loss_every_n_iterations), 0):
-                tf.print("Nth iteration:",  i+1, "Average Loss:", ave_loss)
+            trained_on_k_samples = (i + 1) * training_batch_size
+            if trained_on_k_samples % generate_samples_every_m_training_samples == 0:
+                tf.print(
+                    "Nth iteration:",  i+1,
+                    "Trained on K samples:", trained_on_k_samples,
+                    "Average Loss:", ave_loss
+                )
+                samples = self.generate_samples_from_agent(evaluation_batch_size)
+                filename = (
+                    f"{filepath}/"
+                    f"Generated samples for epoch #{i + 1} "
+                    f"after learning from {trained_on_k_samples} "
+                    "training samples.csv"
+                )
+                np.savetxt(
+                    filename, samples.numpy(), delimiter=",", fmt='%i',
+                    header="i1,i2,i3,i4,i5", comments=""
+                )
 
         ave_losses = ave_losses.stack()
-        training_samples = training_samples.stack()
-        return ave_losses, training_samples
+        return ave_losses
 
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def generate_samples_from_agent(self, batch_size):
@@ -85,36 +102,6 @@ class Runner:
                 tf.math.equal(is_still_sampling, 1)
             )
         return current_position
-
-    def evaluate_agent(self, batch_size):
-        samples = self.generate_samples_from_agent(batch_size)
-        
-        print(samples.numpy())
-
-        sample_counts = self._count_sampled_grid_coordinates(samples)
-        agent_distr = sample_counts / tf.math.reduce_sum(sample_counts)
-        # distr_ave_l1_error = tf.math.reduce_mean(tf.abs(agent_distr - self.env.rewards))
-        distr_js_dist = _compute_js_dist(
-            tf.reshape(agent_distr, shape=(-1,)),
-            tf.reshape(self.env.rewards, shape=(-1,))
-        )
-
-        i1s = tf.cast(samples[:, 0], dtype=tf.float32)
-        agent_observable = tf.math.reduce_mean(
-            _calculate_dihedral_angles(i1s, self.env.spin_j)
-        )
-        # observable_l1_error = tf.abs(
-        #     agent_ave_dihedral_angle - self.env.theoretical_ave_dihedral_angle
-        # )
-        return distr_js_dist, agent_observable
-
-    @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
-    def _count_sampled_grid_coordinates(self, samples):
-        n_samples = tf.shape(samples)[0]
-        zeros = tf.zeros(shape=[self.env.grid_length] * self.env.grid_dimension, dtype=tf.float32)
-        updates = tf.ones(shape=[n_samples], dtype=tf.float32)
-        counts = tf.tensor_scatter_nd_add(zeros, samples, updates)
-        return counts
 
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def _training_step(self, batch_size):
@@ -141,7 +128,7 @@ class Runner:
         self.optimizer.apply_gradients(
             zip(grads, self.agent.policy.trainable_weights + [self.agent.log_Z0])
         )
-        return ave_loss, terminal_states
+        return ave_loss
 
 
     @staticmethod
@@ -197,28 +184,3 @@ class Runner:
         forward_actions = forward_actions.stack()
         backward_actions = backward_actions.stack()[:-1, :, :-1]
         return trajectories, backward_actions, forward_actions
-
-
-@tf.function
-def _compute_entropy(prob):
-    entropy = -tf.reduce_sum(
-        tf.where(
-            tf.not_equal(prob, 0.0),
-            prob*tf.math.log(prob),
-            0.0
-        )
-    )
-    return entropy
-
-
-@tf.function
-def _compute_js_dist(prob1, prob2):
-    js_div = (
-        _compute_entropy(0.5*(prob1 + prob2))
-        - 0.5*(
-            _compute_entropy(prob1) +
-            _compute_entropy(prob2)
-        )
-    )
-    js_dist = tf.math.sqrt(js_div / tf.math.log(2.0))
-    return js_dist
