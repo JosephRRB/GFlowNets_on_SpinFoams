@@ -39,6 +39,11 @@ class Runner:
         )
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=None, dtype=tf.int32),
+        tf.TensorSpec(shape=None, dtype=tf.int32),
+        tf.TensorSpec(shape=None, dtype=tf.int32),
+    ])
     def train_agent(
             self, batch_size, n_iterations, check_loss_every_n_iterations
     ):

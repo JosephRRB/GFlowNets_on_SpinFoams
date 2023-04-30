@@ -34,15 +34,17 @@ class Agent:
     ])
     def act_forward(self, current_position, is_still_sampling, training):
         _, forward_action_logits = self._get_action_logits(current_position)
-        # TODO:
-        #  Possible bug: When current_position is at the end of grid, agent should only terminate action.
-        #  But random noise could prevent this
         if training:
-            uniform_noise = tf.random.uniform(shape=tf.shape(forward_action_logits), minval=1e-100)
-            log_noise = tf.math.log(uniform_noise)
-            forward_action_logits = (
-                    self.exploration_rate * log_noise + (1 - self.exploration_rate) * forward_action_logits
+            noise_per_action = tf.random.uniform(
+                shape=tf.shape(forward_action_logits)
             )
+            noise_probs = noise_per_action / tf.math.reduce_sum(noise_per_action)
+            forward_probs = tf.nn.softmax(forward_action_logits)
+            noisy_probs = (
+                self.exploration_rate * noise_probs +
+                (1 - self.exploration_rate) * forward_probs
+            )
+            forward_action_logits = tf.math.log(noisy_probs)
 
         action_mask = self._find_forbidden_forward_actions(current_position)
         allowed_action_logits = self._mask_action_logits(forward_action_logits, action_mask)
