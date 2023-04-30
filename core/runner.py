@@ -1,4 +1,4 @@
-import os
+# import os
 
 import tensorflow as tf
 import numpy as np
@@ -6,9 +6,9 @@ import numpy as np
 from core.environment import HypergridEnvironment, _calculate_dihedral_angles
 from core.agent import Agent
 
-ROOT_DIR = os.path.abspath(__file__ + "/../../")
-WORKING_DIR = f"{ROOT_DIR}/working_directory"
-os.makedirs(WORKING_DIR, exist_ok=True)
+# ROOT_DIR = os.path.abspath(__file__ + "/../../")
+# WORKING_DIR = f"{ROOT_DIR}/working_directory"
+# os.makedirs(WORKING_DIR, exist_ok=True)
 
 class Runner:
     def __init__(self,
@@ -43,21 +43,24 @@ class Runner:
             self, batch_size, n_iterations, check_loss_every_n_iterations
     ):
         ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+        training_samples = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
 
         for i in tf.range(n_iterations):
             ave_loss, terminal_states = self._training_step(batch_size)
-            np.savetxt(
-                f"{WORKING_DIR}/Epoch #{i+1} Training Samples.csv",
-                terminal_states.numpy(), delimiter=","
-            )
+            # np.savetxt(
+            #     f"{WORKING_DIR}/Epoch #{i+1} Training Samples.csv",
+            #     terminal_states.numpy(), delimiter=","
+            # )
 
             ave_losses = ave_losses.write(i, ave_loss)
+            training_samples = training_samples.write(i, terminal_states)
 
             if tf.math.equal(tf.math.floormod(i+1, check_loss_every_n_iterations), 0):
                 tf.print("Nth iteration:",  i+1, "Average Loss:", ave_loss)
 
         ave_losses = ave_losses.stack()
-        return ave_losses
+        training_samples = training_samples.stack()
+        return ave_losses, training_samples
 
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def generate_samples_from_agent(self, batch_size):
