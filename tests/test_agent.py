@@ -164,7 +164,7 @@ def test_position_is_correctly_encoded():
             [0, 0, 1, 0, 0, 0, 0, 0],  # 2
             [1, 0, 0, 0, 0, 0, 0, 0],  # 0
         ],
-    ], dtype=tf.float32)
+    ], dtype=tf.float64)
 
     assert encoded_position.shape == (2, grid_dim, grid_length)
     tf.debugging.assert_equal(encoded_position, expected)
@@ -241,7 +241,7 @@ def test_action_logits_are_correctly_masked():
     action_logits = tf.constant([
         [-agent.NEG_INF, -3.2, 0.4, -7.1, 5.8, -0.8],
         [-3.6, -5.1, -2.7, 4.5, 6.1, 3.2],
-    ])
+    ], dtype=tf.float64)
     mask = tf.constant([
         [True, True, False, True, True],
         [False, True, False, True, False],
@@ -258,7 +258,7 @@ def test_action_logits_are_correctly_masked():
     original_allowed_action_logits = tf.gather_nd(action_logits, allowed_inds)
 
     assert masked_action_logits.shape == action_logits.shape
-    tf.debugging.assert_equal(forbidden_action_logits, agent.NEG_INF)
+    tf.debugging.assert_equal(tf.cast(forbidden_action_logits, tf.float32), agent.NEG_INF)
     tf.debugging.assert_equal(allowed_action_logits, original_allowed_action_logits)
 
 
@@ -267,7 +267,7 @@ def test_forbidden_actions_are_not_chosen():
     neg_inf = Agent.NEG_INF
     masked_logits = tf.constant(
         [[neg_inf, neg_inf, neg_inf, -3.1, neg_inf]] * 1000 +
-        [[1.3, -4.2, 3.4, neg_inf, -0.7]] * 1000
+        [[1.3, -4.2, 3.4, neg_inf, -0.7]] * 1000, dtype=tf.float64
     )
     # Note: If all elements in a row are neg_inf, _choose_actions will still give
     # a "chosen index". But this will be removed downstream by is_still_sampling
@@ -378,7 +378,7 @@ def test_logits_are_properly_normalized():
             [-5.7, 3.1, -4.3, 9.5, -6.7],
             [-0.9, -2.7, 5.3, 2.9, 8.4],
         ]
-    ])
+    ], dtype=tf.float64)
     mask = tf.constant([
         [
             [False, False, False, False, False],
@@ -435,7 +435,7 @@ def test_log_probas_correctly_correspond_to_actions():
             [-1.6, -1.6, -1.6, -1.6, -1.6],
             [neg_inf, 0.0, neg_inf, neg_inf, neg_inf],
         ],
-    ])
+    ], dtype=tf.float64)
     actions = tf.constant([
         [
             [0, 0, 1, 0, 0],
@@ -460,7 +460,7 @@ def test_log_probas_correctly_correspond_to_actions():
             [0.0],
             [0.0]
         ]
-    ])
+    ], dtype=tf.float64)
 
     assert action_log_probas.shape == (
         actions.shape[0], actions.shape[1], 1
@@ -494,7 +494,7 @@ def test_log_probas_of_backward_actions_are_correct():
             [-5.7, 3.1, -4.3, 9.5, -6.7],
             [-0.9, -2.7, 5.3, 2.9, 8.4],
         ],
-    ])
+    ], dtype=tf.float64)
     actions = tf.constant([
         [
             [0, 0, 0, 1, 0],
@@ -563,7 +563,7 @@ def test_log_probas_of_forward_actions_are_correct():
             [-5.7, 3.1, -4.3, 9.5, -6.7, 1.4],
             [-0.9, -2.7, 5.3, 2.9, 8.4, -2.1],
         ],
-    ])
+    ], dtype=tf.float64)
     actions = tf.constant([
         [
             [0, 1, 0, 0, 0, 0],

@@ -19,7 +19,9 @@ class Agent:
 
         self.exploration_rate = exploration_rate
 
-        self.log_Z0 = tf.Variable(0.0, trainable=True, name="log_Z0")
+        self.log_Z0 = tf.Variable(
+            0.0, trainable=True, name="log_Z0", dtype=tf.float64
+        )
         self.policy = PolicyNetwork(
             main_layer_nodes=[self.env_grid_length*self.env_grid_dim] + list(main_layer_hidden_nodes),
             branch1_layer_nodes=list(branch1_hidden_nodes) + [self.backward_action_dim],
@@ -36,7 +38,7 @@ class Agent:
         _, forward_action_logits = self._get_action_logits(current_position)
         if training:
             noise_per_action = tf.random.uniform(
-                shape=tf.shape(forward_action_logits)
+                shape=tf.shape(forward_action_logits), dtype=tf.float64
             )
             noise_probs = noise_per_action / tf.math.reduce_sum(noise_per_action)
             forward_probs = tf.nn.softmax(forward_action_logits)
@@ -65,7 +67,7 @@ class Agent:
         tf.TensorSpec(shape=(None, None), dtype=tf.int32),
         tf.TensorSpec(shape=(None, None), dtype=tf.bool),
         tf.TensorSpec(shape=(None, None), dtype=tf.int32),
-        tf.TensorSpec(shape=(None, None), dtype=tf.float32),
+        tf.TensorSpec(shape=(None, None), dtype=tf.float64),
     ])
     def _validate_forward_actions(
         self, forward_actions, action_mask, current_position, allowed_action_logits
@@ -114,7 +116,9 @@ class Agent:
 
     @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
     def _encode_positions(self, position):
-        encoded_position = tf.one_hot(position, depth=self.env_grid_length, axis=-1)
+        encoded_position = tf.one_hot(
+            position, depth=self.env_grid_length, axis=-1, dtype=tf.float64
+        )
         return encoded_position
 
     @staticmethod
@@ -129,7 +133,8 @@ class Agent:
         return forward_action_mask
 
     @tf.function(input_signature=[
-        tf.TensorSpec(shape=None, dtype=tf.float32), tf.TensorSpec(shape=None, dtype=tf.bool)
+        tf.TensorSpec(shape=None, dtype=tf.float64),
+        tf.TensorSpec(shape=None, dtype=tf.bool)
     ])
     def _mask_action_logits(self, action_logits, mask):
         avoid_inds = tf.where(mask)
@@ -140,7 +145,7 @@ class Agent:
         return masked_logits
 
     @staticmethod
-    @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.float32)])
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.float64)])
     def _choose_actions(logits):
         action_indices = tf.random.categorical(logits, 1)
         return action_indices
@@ -153,7 +158,8 @@ class Agent:
 
     @staticmethod
     @tf.function(input_signature=[
-        tf.TensorSpec(shape=(None, 1), dtype=tf.int32), tf.TensorSpec(shape=(None, None), dtype=tf.int32)
+        tf.TensorSpec(shape=(None, 1), dtype=tf.int32),
+        tf.TensorSpec(shape=(None, None), dtype=tf.int32)
     ])
     def _update_if_stop_action_is_chosen(still_sampling, forward_actions):
         will_continue_to_sample = still_sampling - tf.reshape(forward_actions[:, -1], shape=(-1, 1))
@@ -177,7 +183,7 @@ class Agent:
 
     @tf.function(input_signature=[
         tf.TensorSpec(shape=(None, None, None), dtype=tf.int32),
-        tf.TensorSpec(shape=(None, None, None), dtype=tf.float32),
+        tf.TensorSpec(shape=(None, None, None), dtype=tf.float64),
         tf.TensorSpec(shape=(None, None, None), dtype=tf.int32)
     ])
     def _calculate_backward_action_log_probabilities(self, positions, logits, actions):
@@ -187,7 +193,7 @@ class Agent:
 
     @tf.function(input_signature=[
         tf.TensorSpec(shape=(None, None, None), dtype=tf.int32),
-        tf.TensorSpec(shape=(None, None, None), dtype=tf.float32),
+        tf.TensorSpec(shape=(None, None, None), dtype=tf.float64),
         tf.TensorSpec(shape=(None, None, None), dtype=tf.int32)
     ])
     def _calculate_forward_action_log_probabilities(self, positions, logits, actions):
@@ -197,7 +203,7 @@ class Agent:
 
     @tf.function(input_signature=[
         tf.TensorSpec(shape=(None, None, None), dtype=tf.bool),
-        tf.TensorSpec(shape=(None, None, None), dtype=tf.float32),
+        tf.TensorSpec(shape=(None, None, None), dtype=tf.float64),
         tf.TensorSpec(shape=(None, None, None), dtype=tf.int32)
     ])
     def _calculate_log_probability_of_actions(self, action_mask, logits, actions):
@@ -206,7 +212,7 @@ class Agent:
         return log_proba_of_chosen_actions
 
     @tf.function(input_signature=[
-        tf.TensorSpec(shape=(None, None, None), dtype=tf.float32),
+        tf.TensorSpec(shape=(None, None, None), dtype=tf.float64),
         tf.TensorSpec(shape=(None, None, None), dtype=tf.bool),
     ])
     def _normalize_allowed_action_logits(self, logits, mask):
@@ -216,9 +222,13 @@ class Agent:
 
     @staticmethod
     @tf.function(input_signature=[
-        tf.TensorSpec(shape=(None, None, None), dtype=tf.float32),
+        tf.TensorSpec(shape=(None, None, None), dtype=tf.float64),
         tf.TensorSpec(shape=(None, None, None), dtype=tf.int32),
     ])
     def _get_action_log_probas(log_probas, actions):
-        action_log_probas = tf.reduce_sum(log_probas * tf.cast(actions, dtype=tf.float32), axis=2, keepdims=True)
+        action_log_probas = tf.reduce_sum(
+            log_probas * tf.cast(actions, dtype=tf.float64),
+            axis=2,
+            keepdims=True
+        )
         return action_log_probas

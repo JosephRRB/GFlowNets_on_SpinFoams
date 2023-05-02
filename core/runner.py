@@ -38,7 +38,7 @@ class Runner:
         filepath = f"{ROOT_DIR}/{directory_for_generated_samples}"
         os.makedirs(filepath, exist_ok=True)
 
-        ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+        ave_losses = tf.TensorArray(dtype=tf.float64, size=0, dynamic_size=True)
         if generate_samples_every_m_training_samples % training_batch_size != 0:
             raise ValueError(
                 f"Evaluate only in multiples of "
@@ -65,7 +65,7 @@ class Runner:
                 )
                 np.savetxt(
                     filename, samples.numpy(), delimiter=",", fmt='%i',
-                    header="i1,i2,i3,i4,i5", comments=""
+                    # header="i1,i2,i3,i4,i5", comments=""
                 )
 
         ave_losses = ave_losses.stack()
@@ -120,9 +120,9 @@ class Runner:
 
     @staticmethod
     @tf.function(input_signature=[
-        tf.TensorSpec(shape=None, dtype=tf.float32),
-        tf.TensorSpec(shape=(None, 1), dtype=tf.float32),
-        tf.TensorSpec(shape=(None, 1), dtype=tf.float32),
+        tf.TensorSpec(shape=None, dtype=tf.float64),
+        tf.TensorSpec(shape=(None, 1), dtype=tf.float64),
+        tf.TensorSpec(shape=(None, 1), dtype=tf.float64),
     ])
     def _calculate_ave_loss(log_Z0, log_rewards, action_log_proba_ratios):
         loss = tf.math.square(log_Z0 - log_rewards + action_log_proba_ratios)

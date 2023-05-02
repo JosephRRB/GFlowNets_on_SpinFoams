@@ -28,10 +28,8 @@ class SpinFoamEnvironment:
         vertex_amplitudes = tf.convert_to_tensor(
             _load_vertex_amplitudes(self.spin_j), dtype=tf.float64
         )
-        self.squared_amplitudes = tf.math.square(vertex_amplitudes)
-        norm = tf.math.reduce_sum(self.squared_amplitudes)
-        normed_sq_ampl = self.squared_amplitudes / norm
-        self.rewards = tf.cast(normed_sq_ampl, dtype=tf.float32)
+        norm = tf.math.sqrt(tf.math.reduce_sum(tf.math.square(vertex_amplitudes)))
+        self.rewards = tf.math.square(vertex_amplitudes / norm)
 
     @tf.function
     def reset_for_forward_sampling(self, batch_size):
