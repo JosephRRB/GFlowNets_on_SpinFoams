@@ -1,4 +1,4 @@
-from core.environment import HypergridEnvironment, _load_vertex_amplitudes
+from core.environment import SpinFoamEnvironment, _load_vertex_amplitudes
 
 
 def test_loaded_amplitudes_have_correct_size():
@@ -23,8 +23,8 @@ def test_loaded_amplitude_values_are_correct():
 
 def test_stored_squared_amplitudes_are_correct():
     spin_j = 3
-    env = HypergridEnvironment(
-        grid_dimension=5, grid_length=2*spin_j+1, environment_mode="spinfoam_vertex"
+    env = SpinFoamEnvironment(
+        spin_j=spin_j
     )
 
     i1, i2, i3, i4, i5 = 0, 3, 0, 2, 0

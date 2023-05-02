@@ -3,37 +3,30 @@ import os
 import tensorflow as tf
 import numpy as np
 
-from core.environment import HypergridEnvironment
+from core.environment import SpinFoamEnvironment
 from core.agent import Agent
 
 ROOT_DIR = os.path.abspath(__file__ + "/../../")
 
 class Runner:
     def __init__(self,
+                 spin_j=3.5,
                  main_layer_hidden_nodes=(30, 20),
                  branch1_hidden_nodes=(10, ),
                  branch2_hidden_nodes=(10, ),
                  activation="swish",
                  exploration_rate=0.5,
-                 grid_dimension=5,
-                 grid_length=8,
-                 environment_mode="test_grid",
                  learning_rate=0.0005
                  ):
-        if environment_mode == "spinfoam_vertex":
-            grid_dimension = 5
+        self.env = SpinFoamEnvironment(spin_j=spin_j)
 
         self.agent = Agent(
-            grid_dimension, grid_length,
+            self.env.grid_dimension, self.env.grid_length,
             main_layer_hidden_nodes=main_layer_hidden_nodes,
             branch1_hidden_nodes=branch1_hidden_nodes,
             branch2_hidden_nodes=branch2_hidden_nodes,
             activation=activation,
             exploration_rate=exploration_rate
-        )
-        self.env = HypergridEnvironment(
-            grid_dimension=grid_dimension, grid_length=grid_length,
-            environment_mode=environment_mode,
         )
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
