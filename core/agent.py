@@ -27,11 +27,11 @@ class Agent:
             activation=activation
         )
 
-    # @tf.function(input_signature=[
-    #     tf.TensorSpec(shape=(None, None), dtype=tf.int32),
-    #     tf.TensorSpec(shape=(None, 1), dtype=tf.int32),
-    #     tf.TensorSpec(shape=None, dtype=tf.bool)
-    # ])
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=(None, None), dtype=tf.int32),
+        tf.TensorSpec(shape=(None, 1), dtype=tf.int32),
+        tf.TensorSpec(shape=None, dtype=tf.bool)
+    ])
     def act_forward(self, current_position, is_still_sampling, training):
         _, forward_action_logits = self._get_action_logits(current_position)
         if training:
@@ -53,8 +53,38 @@ class Agent:
         encoded_actions = self._encode_forward_actions(action_indices)
 
         forward_actions = encoded_actions * is_still_sampling
-        will_continue_to_sample = self._update_if_stop_action_is_chosen(is_still_sampling, forward_actions)
+        will_continue_to_sample = self._update_if_stop_action_is_chosen(
+            is_still_sampling, forward_actions
+        )
+        self._validate_forward_actions(
+            forward_actions, action_mask, current_position, allowed_action_logits
+        )
         return forward_actions, will_continue_to_sample
+
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=(None, None), dtype=tf.int32),
+        tf.TensorSpec(shape=(None, None), dtype=tf.bool),
+        tf.TensorSpec(shape=(None, None), dtype=tf.int32),
+        tf.TensorSpec(shape=(None, None), dtype=tf.float32),
+    ])
+    def _validate_forward_actions(
+        self, forward_actions, action_mask, current_position, allowed_action_logits
+    ):
+        invalid_action_row_inds = tf.where(
+            tf.cast(action_mask, dtype=tf.int32)*forward_actions[:, :-1]
+        )[:, 0]
+        invalid_actions = tf.gather(forward_actions, invalid_action_row_inds)
+        logits = tf.gather(allowed_action_logits, invalid_action_row_inds)
+        positions = tf.gather(current_position, invalid_action_row_inds)
+        tf.Assert(
+            tf.math.equal(tf.shape(invalid_action_row_inds)[0], 0),
+            [(
+              f"agent chose actions={invalid_actions} "
+              f"with logits={logits} "
+              f"for states={positions} "
+              f"which would be out of bounds"
+            )]
+        )
 
     @tf.function(input_signature=[
         tf.TensorSpec(shape=(None, None, None), dtype=tf.int32),
