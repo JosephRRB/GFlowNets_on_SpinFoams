@@ -8,7 +8,6 @@ from core.environment import HypergridEnvironment
 from core.agent import Agent
 
 ROOT_DIR = os.path.abspath(__file__ + "/../../")
-WORKING_DIR = f"{ROOT_DIR}/generated_samples_during_training"
 
 class Runner:
     def __init__(self,
@@ -42,13 +41,9 @@ class Runner:
     def train_agent(
             self, training_batch_size, n_iterations,
             evaluation_batch_size, generate_samples_every_m_training_samples,
-            directory_for_generated_samples=WORKING_DIR
+            directory_for_generated_samples
     ):
-        training_run_datetime = datetime.now().strftime("%B %d, %Y at %H:%M:%S")
-        filepath = (
-            f"{directory_for_generated_samples}/"
-            f"Training run on {training_run_datetime}"
-        )
+        filepath = f"{ROOT_DIR}/{directory_for_generated_samples}"
         os.makedirs(filepath, exist_ok=True)
 
         ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)

@@ -27,11 +27,11 @@ class Agent:
             activation=activation
         )
 
-    @tf.function(input_signature=[
-        tf.TensorSpec(shape=(None, None), dtype=tf.int32),
-        tf.TensorSpec(shape=(None, 1), dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.bool)
-    ])
+    # @tf.function(input_signature=[
+    #     tf.TensorSpec(shape=(None, None), dtype=tf.int32),
+    #     tf.TensorSpec(shape=(None, 1), dtype=tf.int32),
+    #     tf.TensorSpec(shape=None, dtype=tf.bool)
+    # ])
     def act_forward(self, current_position, is_still_sampling, training):
         _, forward_action_logits = self._get_action_logits(current_position)
         if training:
