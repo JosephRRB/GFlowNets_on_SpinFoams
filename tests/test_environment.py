@@ -1,19 +1,26 @@
 import tensorflow as tf
+import numpy as np
 
-from core.environment import SpinFoamEnvironment, SingleVertexSpinFoam, _load_vertex_amplitudes
+from core.environment import SpinFoamEnvironment, SingleVertexSpinFoam, StarModelSpinFoam
 
 
 def test_loaded_amplitudes_have_correct_size():
     spin_j = 3.5
-    vertex_amplitudes = _load_vertex_amplitudes(spin_j)
+    env = SpinFoamEnvironment(
+        spin_j=spin_j, spinfoam_model=SingleVertexSpinFoam()
+    )
+    vertex_amplitudes = env.single_vertex_amplitudes
 
     grid_length = int(2*spin_j + 1)
     assert vertex_amplitudes.shape == (grid_length, )*5
 
 
-def test_loaded_amplitude_values_are_correct():
+def test_single_vertex_amplitude_values_are_correct():
     spin_j = 3.0
-    vertex_amplitudes = _load_vertex_amplitudes(spin_j)
+    env = SpinFoamEnvironment(
+        spin_j=spin_j, spinfoam_model=SingleVertexSpinFoam()
+    )
+    vertex_amplitudes = env.single_vertex_amplitudes
 
     i1, i2, i3, i4, i5 = 0, 3, 0, 2, 0
     # From Python_notebook.ipynb
@@ -23,19 +30,118 @@ def test_loaded_amplitude_values_are_correct():
     assert vertex_amplitude == expected_amplitude
 
 
-def test_squared_single_vertex_amplitudes_are_correct():
+def test_single_vertex_rewards_are_correct():
     spin_j = 3
     env = SpinFoamEnvironment(
         spin_j=spin_j, spinfoam_model=SingleVertexSpinFoam()
     )
-
     i1, i2, i3, i4, i5 = 0, 3, 0, 2, 0
-    positions = tf.constant([i1, i2, i3, i4, i5])
+    positions = tf.constant([[i1, i2, i3, i4, i5]])
     # From Python_notebook.ipynb
     expected_amplitude = -5.071973704515683e-13
-    expected_squared_amplitude = expected_amplitude**2
-    stored_squared_amplitude = env._get_squared_spinfoam_amplitudes(
-        env.single_vertex_amplitudes, positions
+
+    reward = env.get_rewards(positions)
+
+    # Define rewards as square of scaled amplitudes
+    # Scale amplitudes by dividing over the root-sum-square of the
+    # single vertex amplitudes
+    scale = tf.sqrt(
+        tf.math.reduce_sum(tf.math.square(env.single_vertex_amplitudes))
+    )
+    expected_reward = tf.math.square(expected_amplitude / scale)
+
+    assert reward == expected_reward
+
+
+def test_star_amplitudes_are_correct():
+    spin_j = 3
+    env = SpinFoamEnvironment(
+        spin_j=spin_j, spinfoam_model=StarModelSpinFoam()
+    )
+    positions = tf.constant([
+        [0, 1, 4, 3, 4, 0, 1, 4, 3, 2, 0, 1, 4, 3, 0, 0, 1, 4, 3, 0],
+        [2, 0, 1, 4, 3, 0, 0, 1, 4, 3, 0, 0, 1, 4, 3, 4, 0, 1, 4, 3]
+    ])
+
+    vertex_amplitudes = env.single_vertex_amplitudes
+    star_amplitudes = env.spinfoam_model.get_spinfoam_amplitudes(
+        vertex_amplitudes, positions
     )
 
-    assert stored_squared_amplitude == expected_squared_amplitude
+    # From Python_notebook.ipynb
+    def star_reward_optimized(tensor, indices, optimize_path=False):
+        return np.square(
+            np.einsum(
+                'abcde, e, d, c, b, a ->', tensor,
+                tensor[indices[0], indices[1], indices[2], indices[3], :],
+                tensor[indices[4], indices[5], indices[6], indices[7], :],
+                tensor[indices[8], indices[9], indices[10], indices[11], :],
+                tensor[indices[12], indices[13], indices[14], indices[15], :],
+                tensor[indices[16], indices[17], indices[18], indices[19], :],
+                optimize=optimize_path
+            )
+        )
+
+    expected_star_amplitude_0 = star_reward_optimized(
+        vertex_amplitudes.numpy(), positions[0, :].numpy()
+    )
+    expected_star_amplitude_1 = star_reward_optimized(
+        vertex_amplitudes.numpy(), positions[1, :].numpy()
+    )
+
+    np.testing.assert_almost_equal(
+        star_amplitudes[0], expected_star_amplitude_0
+    )
+    np.testing.assert_almost_equal(
+        star_amplitudes[1], expected_star_amplitude_1
+    )
+
+
+def test_star_amplitude_rewards_are_correct():
+    spin_j = 3
+    env = SpinFoamEnvironment(
+        spin_j=spin_j, spinfoam_model=StarModelSpinFoam()
+    )
+    positions = tf.constant([
+        [0, 1, 4, 3, 4, 0, 1, 4, 3, 2, 0, 1, 4, 3, 0, 0, 1, 4, 3, 0],
+        [2, 0, 1, 4, 3, 0, 0, 1, 4, 3, 0, 0, 1, 4, 3, 4, 0, 1, 4, 3]
+    ])
+    rewards = env.get_rewards(positions)
+
+    # Define rewards as square of scaled amplitudes
+    # Scale amplitudes by dividing over the root-sum-square of the
+    # single vertex amplitudes
+    vertex_amplitudes = env.single_vertex_amplitudes
+    scale = tf.sqrt(tf.math.reduce_sum(tf.math.square(vertex_amplitudes)))
+    scaled_amplitudes = vertex_amplitudes / scale
+
+    # From Python_notebook.ipynb
+    def star_reward_optimized(tensor, indices, optimize_path=False):
+        return np.square(
+            np.einsum(
+                'abcde, e, d, c, b, a ->', tensor,
+                tensor[indices[0], indices[1], indices[2], indices[3], :],
+                tensor[indices[4], indices[5], indices[6], indices[7], :],
+                tensor[indices[8], indices[9], indices[10], indices[11], :],
+                tensor[indices[12], indices[13], indices[14], indices[15], :],
+                tensor[indices[16], indices[17], indices[18], indices[19], :],
+                optimize=optimize_path
+            )
+        )
+
+    scaled_star_amplitude_0 = star_reward_optimized(
+        scaled_amplitudes.numpy(), positions[0, :].numpy()
+    )
+    scaled_star_amplitude_1 = star_reward_optimized(
+        scaled_amplitudes.numpy(), positions[1, :].numpy()
+    )
+
+    expected_rewards_0 = scaled_star_amplitude_0 ** 2
+    expected_rewards_1 = scaled_star_amplitude_1 ** 2
+
+    np.testing.assert_almost_equal(
+        rewards[0, 0], expected_rewards_0
+    )
+    np.testing.assert_almost_equal(
+        rewards[1, 0], expected_rewards_1
+    )

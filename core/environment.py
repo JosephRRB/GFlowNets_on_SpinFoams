@@ -20,12 +20,18 @@ class StarModelSpinFoam(BaseSpinFoam):
         super().__init__(n_boundary_intertwiners=20)
 
     @staticmethod
-    @tf.function
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=(None, ) * 5, dtype=tf.float64),
+        tf.TensorSpec(shape=(None, 4), dtype=tf.int32),
+    ])
     def _get_amplitude_per_star_edge(amplitudes, boundary_intertwiners_per_edge):
         amplitude = tf.gather_nd(amplitudes, boundary_intertwiners_per_edge)
         return amplitude
 
-    @tf.function
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=(None, ) * 5, dtype=tf.float64),
+        tf.TensorSpec(shape=(None, 20), dtype=tf.int32),
+    ])
     def get_spinfoam_amplitudes(self, amplitudes, boundary_intertwiners):
         vertex_1 = self._get_amplitude_per_star_edge(
             amplitudes, boundary_intertwiners[:, :4]
@@ -54,6 +60,10 @@ class SingleVertexSpinFoam(BaseSpinFoam):
     def __init__(self):
         super().__init__(n_boundary_intertwiners=5)
 
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=(None, ) * 5, dtype=tf.float64),
+        tf.TensorSpec(shape=(None, 5), dtype=tf.int32),
+    ])
     def get_spinfoam_amplitudes(self, amplitudes, boundary_intertwiners):
         return tf.gather_nd(amplitudes, boundary_intertwiners)
 
@@ -70,8 +80,19 @@ class SpinFoamEnvironment:
                     Length of the grid in one dimension is 2*spin_j + 1. All
                     the lengths are equal in all dimensions
 
-    TODO: Should allow user to use their own queryable reward function (without
-            needing to precalculate all the rewards)
+        spinfoam_model: BaseSpinFoam
+                    Python class representing a specific spinfoam model
+
+                     n_boundary_intertwiners
+                        - stores the number of boundary intertwiners
+                        - represents the number of dimensions for the
+                            environment grid
+
+                    get_spinfoam_amplitudes()
+                        - function that calculates the amplitudes of a specific
+                            spinfoam model
+                        - will be used to calculate the rewards for each position
+                            in the environment grid
     """
     def __init__(self, spin_j, spinfoam_model: BaseSpinFoam):
         self.spinfoam_model = spinfoam_model
@@ -86,7 +107,7 @@ class SpinFoamEnvironment:
         )
         self.scaled_amplitudes = self.single_vertex_amplitudes / scale
 
-    @tf.function
+    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def reset_for_forward_sampling(self, batch_size):
         """Generate positions at the hypergrid origin of size batch_size"""
         positions = tf.zeros(
@@ -96,12 +117,15 @@ class SpinFoamEnvironment:
         return positions
 
     @staticmethod
-    @tf.function
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=(None, None), dtype=tf.int32),
+        tf.TensorSpec(shape=(None, None), dtype=tf.int32),
+    ])
     def step_forward(current_position, forward_action):
         new_position = current_position + forward_action[:, :-1]
         return new_position
 
-    @tf.function
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
     def get_rewards(self, positions):
         """Get the corresponding rewards for positions"""
         rewards = tf.reshape(
@@ -112,7 +136,10 @@ class SpinFoamEnvironment:
         )
         return rewards
 
-    @tf.function
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=None, dtype=tf.float64),
+        tf.TensorSpec(shape=(None, None), dtype=tf.int32),
+    ])
     def _get_squared_spinfoam_amplitudes(self, amplitudes, positions):
         return tf.math.square(
             self.spinfoam_model.get_spinfoam_amplitudes(amplitudes, positions)

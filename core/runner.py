@@ -3,13 +3,15 @@ import os
 import tensorflow as tf
 import numpy as np
 
-from core.environment import SpinFoamEnvironment
+from core.environment import SpinFoamEnvironment, BaseSpinFoam
 from core.agent import Agent
 
 ROOT_DIR = os.path.abspath(__file__ + "/../../")
 
+
 class Runner:
     def __init__(self,
+                 spinfoam_model: BaseSpinFoam,
                  spin_j=3.5,
                  main_layer_hidden_nodes=(30, 20),
                  branch1_hidden_nodes=(10, ),
@@ -18,7 +20,9 @@ class Runner:
                  exploration_rate=0.5,
                  learning_rate=0.0005
                  ):
-        self.env = SpinFoamEnvironment(spin_j=spin_j)
+        self.env = SpinFoamEnvironment(
+            spin_j=spin_j, spinfoam_model=spinfoam_model
+        )
 
         self.agent = Agent(
             self.env.grid_dimension, self.env.grid_length,
