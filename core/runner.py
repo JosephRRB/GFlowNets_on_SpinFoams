@@ -12,7 +12,6 @@ ROOT_DIR = os.path.abspath(__file__ + "/../../")
 class Runner:
     def __init__(self,
                  spinfoam_model: BaseSpinFoam,
-                 spin_j=3.5,
                  main_layer_hidden_nodes=(30, 20),
                  branch1_hidden_nodes=(10, ),
                  branch2_hidden_nodes=(10, ),
