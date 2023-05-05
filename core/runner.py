@@ -17,10 +17,10 @@ class Runner:
                  branch2_hidden_nodes=(10, ),
                  activation="swish",
                  exploration_rate=0.5,
+                 training_fraction_from_back_traj=0.0,
                  learning_rate=0.0005
                  ):
         self.env = SpinFoamEnvironment(spinfoam_model=spinfoam_model)
-
         self.agent = Agent(
             self.env.grid_dimension, self.env.grid_length,
             main_layer_hidden_nodes=main_layer_hidden_nodes,
@@ -35,10 +35,10 @@ class Runner:
             frac=0.99
         )
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+        self.training_fraction_from_back_traj = training_fraction_from_back_traj
 
     def train_agent(
             self, training_batch_size, n_iterations,
-            fraction_of_training_from_back_trajectories,
             evaluation_batch_size, generate_samples_every_m_training_samples,
             directory_for_generated_samples
     ):
@@ -53,7 +53,7 @@ class Runner:
             )
 
         n_batch_backwards = int(
-            fraction_of_training_from_back_trajectories * training_batch_size
+            self.training_fraction_from_back_traj * training_batch_size
         )
         n_batch_forwards = training_batch_size - n_batch_backwards
 
@@ -68,8 +68,6 @@ class Runner:
         evaluation_batch_size = tf.constant(evaluation_batch_size)
         for i in tf.range(n_iterations):
             ave_loss = self._training_step(n_batch_forwards, n_batch_backwards)
-            if i == 0:
-                tf.print("Nth iteration:",  i+1, "Average Loss:", ave_loss)
             ave_losses = ave_losses.write(i, ave_loss)
 
             trained_on_k_samples = (i + 1) * training_batch_size
@@ -143,11 +141,6 @@ class Runner:
             ], axis=0)
 
         rewards = self.env.get_rewards(terminal_states)
-        # logr = tf.math.log(rewards)
-        # ave_logr = tf.reduce_mean(logr)
-        # min_logr = tf.reduce_min(logr)
-        # max_logr = tf.reduce_max(logr)
-        # tf.print("ave: ", ave_logr, "\n min: ", min_logr, "\n max: ", max_logr)
         with tf.GradientTape() as tape:
             if tf.math.not_equal(n_batch_forwards, 0):
                 action_log_proba_ratios_ft = \
