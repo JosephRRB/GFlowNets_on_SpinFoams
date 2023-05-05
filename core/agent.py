@@ -232,3 +232,34 @@ class Agent:
             keepdims=True
         )
         return action_log_probas
+
+
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
+    def act_backward(self, current_position):
+        backward_action_logits, _ = self._get_action_logits(current_position)
+
+        action_mask = self._find_forbidden_backward_actions(current_position)
+        allowed_action_logits = self._mask_action_logits(backward_action_logits, action_mask)
+
+        action_indices = self._choose_actions(allowed_action_logits)
+        encoded_actions = self._encode_backward_actions(action_indices)
+
+        is_still_sampling = self._check_if_able_to_act_backward(action_mask)
+        backward_actions = encoded_actions * is_still_sampling
+        return backward_actions
+
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, 1), dtype=tf.int64)])
+    def _encode_backward_actions(self, action_indices):
+        reshaped_action_indices = tf.reshape(action_indices, shape=(-1,))
+        encoded_actions = tf.one_hot(reshaped_action_indices,
+                                     depth=self.backward_action_dim,
+                                     dtype=tf.int32)
+        return encoded_actions
+
+    @staticmethod
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.bool)])
+    def _check_if_able_to_act_backward(backwards_action_mask):
+        is_at_origin = tf.math.reduce_all(backwards_action_mask, axis=1,
+                                          keepdims=True)
+        is_able = tf.cast(tf.math.logical_not(is_at_origin), dtype=tf.int32)
+        return is_able

@@ -145,6 +145,21 @@ class SpinFoamEnvironment:
             self.spinfoam_model.get_spinfoam_amplitudes(amplitudes, positions)
         )
 
+    @tf.function
+    def reset_for_backward_sampling(self, batch_size):
+        """Generate random positions in the hypergrid of size batch_size"""
+        positions = tf.random.uniform(
+            shape=(batch_size, self.grid_dimension),
+            minval=0, maxval=self.grid_length, dtype=tf.int32
+        )
+        return positions
+
+    @staticmethod
+    @tf.function
+    def step_backward(current_position, back_action):
+        new_position = current_position - back_action
+        return new_position
+
 
 def _load_vertex_amplitudes(spin_j):
     vertex = np.load(f"{ROOT_DIR}/data/EPRL_vertices/Python/Dl_20/vertex_j_{spin_j}.npz")

@@ -36,6 +36,7 @@ class Runner:
 
     def train_agent(
             self, training_batch_size, n_iterations,
+            fraction_of_training_from_back_trajectories,
             evaluation_batch_size, generate_samples_every_m_training_samples,
             directory_for_generated_samples
     ):
@@ -49,8 +50,19 @@ class Runner:
                 f"training_batch_size={training_batch_size}"
             )
 
+        n_batch_backwards = int(
+            fraction_of_training_from_back_trajectories * training_batch_size
+        )
+        n_batch_forwards = training_batch_size - n_batch_backwards
+
+        if n_batch_backwards < 0 or n_batch_forwards < 0:
+            raise ValueError(
+                f"The fraction of backward trajectories in the training batch "
+                f"should be between 0 and 1."
+            )
+
         for i in tf.range(n_iterations):
-            ave_loss = self._training_step(training_batch_size)
+            ave_loss = self._training_step(n_batch_forwards, n_batch_backwards)
             ave_losses = ave_losses.write(i, ave_loss)
 
             trained_on_k_samples = (i + 1) * training_batch_size
@@ -94,19 +106,55 @@ class Runner:
             )
         return current_position
 
-    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
-    def _training_step(self, batch_size):
-        trajectories, backward_actions, forward_actions = \
-            self._generate_forward_trajectories(
-                batch_size, training=tf.constant(True)
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=None, dtype=tf.int32),
+        tf.TensorSpec(shape=None, dtype=tf.int32)
+    ])
+    def _training_step(self, n_batch_forwards, n_batch_backwards):
+        terminal_states = tf.constant(
+            [], dtype=tf.int32, shape=(0, self.env.grid_dimension)
+        )
+        action_log_proba_ratios = tf.constant(
+            [], dtype=tf.float64, shape=(0, 1)
+        )
+        forward_trajectories = (tf.constant([], dtype=tf.int32), ) * 3
+        backward_trajectories = (tf.constant([], dtype=tf.int32), ) * 3
+        if tf.math.not_equal(n_batch_forwards, 0):
+            forward_trajectories = self._generate_forward_trajectories(
+                    n_batch_forwards, training=tf.constant(True)
+                )
+            terminal_states = tf.concat([
+                terminal_states, forward_trajectories[0][-1]
+            ], axis=0)
+
+        if tf.math.not_equal(n_batch_backwards, 0):
+            backward_trajectories = self._generate_backward_trajectories(
+                n_batch_backwards
             )
-        terminal_states = trajectories[-1]
+            terminal_states = tf.concat([
+                terminal_states, backward_trajectories[0][0]
+            ], axis=0)
+
         rewards = self.env.get_rewards(terminal_states)
         with tf.GradientTape() as tape:
-            action_log_proba_ratios = \
-                self.agent.calculate_action_log_probability_ratio(
-                    trajectories, backward_actions, forward_actions
-                )
+            if tf.math.not_equal(n_batch_forwards, 0):
+                action_log_proba_ratios_ft = \
+                    self.agent.calculate_action_log_probability_ratio(
+                        *forward_trajectories
+                    )
+                action_log_proba_ratios = tf.concat([
+                    action_log_proba_ratios, action_log_proba_ratios_ft
+                ], axis=0)
+
+            if tf.math.not_equal(n_batch_backwards, 0):
+                action_log_proba_ratios_bt = \
+                    self.agent.calculate_action_log_probability_ratio(
+                        *backward_trajectories
+                    )
+                action_log_proba_ratios = tf.concat([
+                    action_log_proba_ratios, action_log_proba_ratios_bt
+                ], axis=0)
+
             log_Z0 = self.agent.log_Z0
             log_rewards = tf.math.log(rewards)
             ave_loss = self._calculate_ave_loss(
@@ -174,4 +222,46 @@ class Runner:
         trajectories = trajectories.stack()[:-1]
         forward_actions = forward_actions.stack()
         backward_actions = backward_actions.stack()[:-1, :, :-1]
+        return trajectories, backward_actions, forward_actions
+
+    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
+    def _generate_backward_trajectories(self, batch_size):
+        current_position = self.env.reset_for_backward_sampling(batch_size)
+
+        no_coord_action = tf.zeros(
+            shape=(batch_size, self.agent.backward_action_dim), dtype=tf.int32
+        )
+
+        trajectories = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
+        backward_actions = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
+        forward_actions = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
+
+        trajectories = trajectories.write(0, current_position)
+        forward_actions = forward_actions.write(0, no_coord_action)
+
+        i = tf.constant(0)
+        at_least_one_ongoing = tf.constant(True)
+        while at_least_one_ongoing:
+            action = self.agent.act_backward(current_position)
+            current_position = self.env.step_backward(current_position, action)
+
+            trajectories = trajectories.write(i+1, current_position)
+            backward_actions = backward_actions.write(i, action)
+            forward_actions = forward_actions.write(i+1, action)
+
+            i += 1
+            at_least_one_ongoing = tf.math.reduce_any(
+                tf.math.not_equal(current_position, 0)
+            )
+        backward_actions = backward_actions.write(i, no_coord_action)
+
+        trajectory_max_len = i + 1
+        stop_actions = tf.scatter_nd(
+            indices=[[0]],
+            updates=tf.ones(shape=(1, batch_size, 1), dtype=tf.int32),
+            shape=(trajectory_max_len, batch_size, 1)
+        )
+        trajectories = trajectories.stack()
+        backward_actions = backward_actions.stack()
+        forward_actions = tf.concat([forward_actions.stack(), stop_actions], axis=2)
         return trajectories, backward_actions, forward_actions
