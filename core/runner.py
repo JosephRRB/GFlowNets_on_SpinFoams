@@ -86,7 +86,6 @@ class Runner:
                 )
                 np.savetxt(
                     filename, samples.numpy(), delimiter=",", fmt='%i',
-                    # header="i1,i2,i3,i4,i5", comments=""
                 )
 
         ave_losses = ave_losses.stack()
