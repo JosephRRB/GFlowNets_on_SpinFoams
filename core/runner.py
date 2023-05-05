@@ -1,74 +1,95 @@
-import tensorflow as tf
+import os
 
-from core.environment import HypergridEnvironment, _calculate_dihedral_angles
+import tensorflow as tf
+import numpy as np
+
+from core.environment import SpinFoamEnvironment, BaseSpinFoam
 from core.agent import Agent
+
+ROOT_DIR = os.path.abspath(__file__ + "/../../")
+
 
 class Runner:
     def __init__(self,
+                 spinfoam_model: BaseSpinFoam,
                  main_layer_hidden_nodes=(30, 20),
                  branch1_hidden_nodes=(10, ),
                  branch2_hidden_nodes=(10, ),
                  activation="swish",
                  exploration_rate=0.5,
-                 grid_dimension=5,
-                 grid_length=8,
-                 environment_mode="test_grid",
+                 training_fraction_from_back_traj=0.0,
                  learning_rate=0.0005
                  ):
-        if environment_mode == "spinfoam_vertex":
-            grid_dimension = 5
-
+        self.env = SpinFoamEnvironment(spinfoam_model=spinfoam_model)
         self.agent = Agent(
-            grid_dimension, grid_length,
+            self.env.grid_dimension, self.env.grid_length,
             main_layer_hidden_nodes=main_layer_hidden_nodes,
             branch1_hidden_nodes=branch1_hidden_nodes,
             branch2_hidden_nodes=branch2_hidden_nodes,
             activation=activation,
             exploration_rate=exploration_rate
         )
-        self.env = HypergridEnvironment(
-            grid_dimension=grid_dimension, grid_length=grid_length,
-            environment_mode=environment_mode,
+        self.agent.set_initial_estimate_for_log_z0(
+            self.env.spinfoam_model.single_vertex_amplitudes,
+            self.env.spinfoam_model.n_vertices,
+            frac=0.99
         )
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+        self.training_fraction_from_back_traj = training_fraction_from_back_traj
 
-    @tf.function(input_signature=[
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-    ])
-    def train_agent(self, half_batch_size, n_iterations, evaluate_every_n_iterations, evaluation_batch_size):
-        ave_losses = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
-        distr_js_dists = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
-        observables = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
-        samples = tf.TensorArray(dtype=tf.int8, size=0, dynamic_size=True)
+    def train_agent(
+            self, training_batch_size, n_iterations,
+            evaluation_batch_size, generate_samples_every_m_training_samples,
+            directory_for_generated_samples
+    ):
+        filepath = f"{ROOT_DIR}/{directory_for_generated_samples}"
+        os.makedirs(filepath, exist_ok=True)
 
-        # distr_errors, obss = self.evaluate_agent_on_batches(evaluation_batch_sizes)
-        distr_js_dist, obs = self.evaluate_agent(evaluation_batch_size)
-        distr_js_dists = distr_js_dists.write(0, distr_js_dist)
-        observables = observables.write(0, obs)
+        ave_losses = tf.TensorArray(dtype=tf.float64, size=0, dynamic_size=True)
+        if generate_samples_every_m_training_samples % training_batch_size != 0:
+            raise ValueError(
+                f"Evaluate only in multiples of "
+                f"training_batch_size={training_batch_size}"
+            )
 
-        eval_i = 1
+        n_batch_backwards = int(
+            self.training_fraction_from_back_traj * training_batch_size
+        )
+        n_batch_forwards = training_batch_size - n_batch_backwards
+
+        if n_batch_backwards < 0 or n_batch_forwards < 0:
+            raise ValueError(
+                f"The fraction of backward trajectories in the training batch "
+                f"should be between 0 and 1."
+            )
+
+        n_batch_backwards = tf.constant(n_batch_backwards)
+        n_batch_forwards = tf.constant(n_batch_forwards)
+        evaluation_batch_size = tf.constant(evaluation_batch_size)
         for i in tf.range(n_iterations):
-            ave_loss = self._training_step(half_batch_size)
+            ave_loss = self._training_step(n_batch_forwards, n_batch_backwards)
             ave_losses = ave_losses.write(i, ave_loss)
 
-            if tf.math.equal(tf.math.floormod(i+1, evaluate_every_n_iterations), 0):
-                tf.print("Nth iteration:",  i+1, "Average Loss:", ave_loss)
-                # agent_observable = self.calculate_observable_from_agent(evaluation_batch_size)
-                # distr_errors, obss = self.evaluate_agent_on_batches(evaluation_batch_sizes)
-                distr_js_dist, obs = self.evaluate_agent(evaluation_batch_size)
-                distr_js_dists = distr_js_dists.write(eval_i, distr_js_dist)
-                observables = observables.write(eval_i, obs)
-                eval_i += 1
+            trained_on_k_samples = (i + 1) * training_batch_size
+            if trained_on_k_samples % generate_samples_every_m_training_samples == 0:
+                tf.print(
+                    "Nth iteration:",  i+1,
+                    "Trained on K samples:", trained_on_k_samples,
+                    "Average Loss:", ave_loss
+                )
+                samples = self.generate_samples_from_agent(evaluation_batch_size)
+                filename = (
+                    f"{filepath}/"
+                    f"Generated samples for epoch #{i + 1} "
+                    f"after learning from {trained_on_k_samples} "
+                    "training samples.csv"
+                )
+                np.savetxt(
+                    filename, samples.numpy(), delimiter=",", fmt='%i',
+                )
 
         ave_losses = ave_losses.stack()
-        distr_js_dists = distr_js_dists.stack()
-        observables = observables.stack()
-        samples = samples.stack()
-        
-        return ave_losses, distr_js_dists, observables
+        return ave_losses
 
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def generate_samples_from_agent(self, batch_size):
@@ -89,81 +110,60 @@ class Runner:
             )
         return current_position
 
-    # @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
-    # def get_normalized_agent_sample_distribution(self, batch_size):
-    #     samples = self.generate_samples_from_agent(batch_size)
-    #     sample_counts = self._count_sampled_grid_coordinates(samples)
-    #
-    #     normalized_agent_sample_distribution = sample_counts / tf.math.reduce_sum(sample_counts)
-    #     return normalized_agent_sample_distribution
-
-    def evaluate_agent(self, batch_size):
-        samples = self.generate_samples_from_agent(batch_size)
-        
-        print(samples.numpy())
-
-        sample_counts = self._count_sampled_grid_coordinates(samples)
-        agent_distr = sample_counts / tf.math.reduce_sum(sample_counts)
-        # distr_ave_l1_error = tf.math.reduce_mean(tf.abs(agent_distr - self.env.rewards))
-        distr_js_dist = _compute_js_dist(
-            tf.reshape(agent_distr, shape=(-1,)),
-            tf.reshape(self.env.rewards, shape=(-1,))
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=None, dtype=tf.int32),
+        tf.TensorSpec(shape=None, dtype=tf.int32)
+    ])
+    def _training_step(self, n_batch_forwards, n_batch_backwards):
+        terminal_states = tf.constant(
+            [], dtype=tf.int32, shape=(0, self.env.grid_dimension)
         )
-
-        i1s = tf.cast(samples[:, 0], dtype=tf.float32)
-        agent_observable = tf.math.reduce_mean(
-            _calculate_dihedral_angles(i1s, self.env.spin_j)
+        action_log_proba_ratios = tf.constant(
+            [], dtype=tf.float64, shape=(0, 1)
         )
-        # observable_l1_error = tf.abs(
-        #     agent_ave_dihedral_angle - self.env.theoretical_ave_dihedral_angle
-        # )
-        return distr_js_dist, agent_observable
+        forward_trajectories = (tf.constant([], dtype=tf.int32), ) * 3
+        backward_trajectories = (tf.constant([], dtype=tf.int32), ) * 3
+        if tf.math.not_equal(n_batch_forwards, 0):
+            forward_trajectories = self._generate_forward_trajectories(
+                    n_batch_forwards, training=tf.constant(True)
+                )
+            terminal_states = tf.concat([
+                terminal_states, forward_trajectories[0][-1]
+            ], axis=0)
 
-    # def calculate_observable_from_agent(self, batch_size):
-    #     samples = self.generate_samples_from_agent(batch_size)
-    #     i1s = tf.cast(samples[:, 0], dtype=tf.float32)
-    #     agent_observable = tf.math.reduce_mean(
-    #         _calculate_dihedral_angles(i1s, self.env.spin_j)
-    #     )
-    #     return agent_observable
+        if tf.math.not_equal(n_batch_backwards, 0):
+            backward_trajectories = self._generate_backward_trajectories(
+                n_batch_backwards
+            )
+            terminal_states = tf.concat([
+                terminal_states, backward_trajectories[0][0]
+            ], axis=0)
 
-    # def evaluate_agent_on_batches(self, batch_sizes):
-    #     distr_errors = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
-    #     observables = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
-    #
-    #     ind = 0
-    #     for batch_size in batch_sizes:
-    #         distr_ave_l1_error, agent_observable = self.evaluate_agent(batch_size)
-    #         distr_errors = distr_errors.write(ind, distr_ave_l1_error)
-    #         observables = observables.write(ind, agent_observable)
-    #         ind += 1
-    #
-    #     distr_errors = distr_errors.stack()
-    #     observables = observables.stack()
-    #     return distr_errors, observables
-
-    @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
-    def _count_sampled_grid_coordinates(self, samples):
-        n_samples = tf.shape(samples)[0]
-        zeros = tf.zeros(shape=[self.env.grid_length] * self.env.grid_dimension, dtype=tf.float32)
-        updates = tf.ones(shape=[n_samples], dtype=tf.float32)
-        counts = tf.tensor_scatter_nd_add(zeros, samples, updates)
-        return counts
-
-    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
-    def _training_step(self, half_batch_size):
-        ts1, ba1, fa1 = self._generate_backward_trajectories(half_batch_size)
-        ts2, ba2, fa2 = self._generate_forward_trajectories(half_batch_size, training=tf.constant(True))
-
-        final_positions = tf.concat([ts1[0], ts2[-1]], axis=0)
-        rewards = self.env.get_rewards(final_positions)
+        rewards = self.env.get_rewards(terminal_states)
         with tf.GradientTape() as tape:
-            alpr1 = self.agent.calculate_action_log_probability_ratio(ts1, ba1, fa1)
-            alpr2 = self.agent.calculate_action_log_probability_ratio(ts2, ba2, fa2)
-            action_log_proba_ratios = tf.concat([alpr1, alpr2], axis=0)
+            if tf.math.not_equal(n_batch_forwards, 0):
+                action_log_proba_ratios_ft = \
+                    self.agent.calculate_action_log_probability_ratio(
+                        *forward_trajectories
+                    )
+                action_log_proba_ratios = tf.concat([
+                    action_log_proba_ratios, action_log_proba_ratios_ft
+                ], axis=0)
+
+            if tf.math.not_equal(n_batch_backwards, 0):
+                action_log_proba_ratios_bt = \
+                    self.agent.calculate_action_log_probability_ratio(
+                        *backward_trajectories
+                    )
+                action_log_proba_ratios = tf.concat([
+                    action_log_proba_ratios, action_log_proba_ratios_bt
+                ], axis=0)
+
             log_Z0 = self.agent.log_Z0
             log_rewards = tf.math.log(rewards)
-            ave_loss = self._calculate_ave_loss(log_Z0, log_rewards, action_log_proba_ratios)
+            ave_loss = self._calculate_ave_loss(
+                log_Z0, log_rewards, action_log_proba_ratios
+            )
 
         grads = tape.gradient(
             ave_loss, self.agent.policy.trainable_weights + [self.agent.log_Z0]
@@ -176,56 +176,14 @@ class Runner:
 
     @staticmethod
     @tf.function(input_signature=[
-        tf.TensorSpec(shape=None, dtype=tf.float32),
-        tf.TensorSpec(shape=(None, 1), dtype=tf.float32),
-        tf.TensorSpec(shape=(None, 1), dtype=tf.float32),
+        tf.TensorSpec(shape=None, dtype=tf.float64),
+        tf.TensorSpec(shape=(None, 1), dtype=tf.float64),
+        tf.TensorSpec(shape=(None, 1), dtype=tf.float64),
     ])
     def _calculate_ave_loss(log_Z0, log_rewards, action_log_proba_ratios):
         loss = tf.math.square(log_Z0 - log_rewards + action_log_proba_ratios)
         ave_loss = tf.reduce_mean(loss)
         return ave_loss
-
-    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
-    def _generate_backward_trajectories(self, batch_size):
-        current_position = self.env.reset_for_backward_sampling(batch_size)
-
-        no_coord_action = tf.zeros(
-            shape=(batch_size, self.agent.backward_action_dim), dtype=tf.int32
-        )
-
-        trajectories = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
-        backward_actions = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
-        forward_actions = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
-
-        trajectories = trajectories.write(0, current_position)
-        forward_actions = forward_actions.write(0, no_coord_action)
-
-        i = tf.constant(0)
-        at_least_one_ongoing = tf.constant(True)
-        while at_least_one_ongoing:
-            action = self.agent.act_backward(current_position)
-            current_position = self.env.step_backward(current_position, action)
-
-            trajectories = trajectories.write(i+1, current_position)
-            backward_actions = backward_actions.write(i, action)
-            forward_actions = forward_actions.write(i+1, action)
-
-            i += 1
-            at_least_one_ongoing = tf.math.reduce_any(
-                tf.math.not_equal(current_position, 0)
-            )
-        backward_actions = backward_actions.write(i, no_coord_action)
-
-        trajectory_max_len = i + 1
-        stop_actions = tf.scatter_nd(
-            indices=[[0]],
-            updates=tf.ones(shape=(1, batch_size, 1), dtype=tf.int32),
-            shape=(trajectory_max_len, batch_size, 1)
-        )
-        trajectories = trajectories.stack()
-        backward_actions = backward_actions.stack()
-        forward_actions = tf.concat([forward_actions.stack(), stop_actions], axis=2)
-        return trajectories, backward_actions, forward_actions
 
     @tf.function(input_signature=[
         tf.TensorSpec(shape=None, dtype=tf.int32),
@@ -270,27 +228,44 @@ class Runner:
         backward_actions = backward_actions.stack()[:-1, :, :-1]
         return trajectories, backward_actions, forward_actions
 
+    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
+    def _generate_backward_trajectories(self, batch_size):
+        current_position = self.env.reset_for_backward_sampling(batch_size)
 
-@tf.function
-def _compute_entropy(prob):
-    entropy = -tf.reduce_sum(
-        tf.where(
-            tf.not_equal(prob, 0.0),
-            prob*tf.math.log(prob),
-            0.0
+        no_coord_action = tf.zeros(
+            shape=(batch_size, self.agent.backward_action_dim), dtype=tf.int32
         )
-    )
-    return entropy
 
+        trajectories = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
+        backward_actions = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
+        forward_actions = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
 
-@tf.function
-def _compute_js_dist(prob1, prob2):
-    js_div = (
-        _compute_entropy(0.5*(prob1 + prob2))
-        - 0.5*(
-            _compute_entropy(prob1) +
-            _compute_entropy(prob2)
+        trajectories = trajectories.write(0, current_position)
+        forward_actions = forward_actions.write(0, no_coord_action)
+
+        i = tf.constant(0)
+        at_least_one_ongoing = tf.constant(True)
+        while at_least_one_ongoing:
+            action = self.agent.act_backward(current_position)
+            current_position = self.env.step_backward(current_position, action)
+
+            trajectories = trajectories.write(i+1, current_position)
+            backward_actions = backward_actions.write(i, action)
+            forward_actions = forward_actions.write(i+1, action)
+
+            i += 1
+            at_least_one_ongoing = tf.math.reduce_any(
+                tf.math.not_equal(current_position, 0)
+            )
+        backward_actions = backward_actions.write(i, no_coord_action)
+
+        trajectory_max_len = i + 1
+        stop_actions = tf.scatter_nd(
+            indices=[[0]],
+            updates=tf.ones(shape=(1, batch_size, 1), dtype=tf.int32),
+            shape=(trajectory_max_len, batch_size, 1)
         )
-    )
-    js_dist = tf.math.sqrt(js_div / tf.math.log(2.0))
-    return js_dist
+        trajectories = trajectories.stack()
+        backward_actions = backward_actions.stack()
+        forward_actions = tf.concat([forward_actions.stack(), stop_actions], axis=2)
+        return trajectories, backward_actions, forward_actions
