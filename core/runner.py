@@ -61,6 +61,9 @@ class Runner:
                 f"should be between 0 and 1."
             )
 
+        n_batch_backwards = tf.constant(n_batch_backwards)
+        n_batch_forwards = tf.constant(n_batch_forwards)
+        evaluation_batch_size = tf.constant(evaluation_batch_size)
         for i in tf.range(n_iterations):
             ave_loss = self._training_step(n_batch_forwards, n_batch_backwards)
             ave_losses = ave_losses.write(i, ave_loss)
