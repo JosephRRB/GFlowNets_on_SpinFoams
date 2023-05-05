@@ -8,7 +8,7 @@ def test_actions_correctly_correspond_to_forward_trajectories():
     spin_j = 3.5
     batch_size = 10
 
-    runner = Runner(spinfoam_model=SingleVertexSpinFoam(), spin_j=spin_j)
+    runner = Runner(spinfoam_model=SingleVertexSpinFoam(spin_j=spin_j))
     trajectories, backward_actions, forward_actions = runner._generate_forward_trajectories(batch_size, training=False)
 
     next_forward_positions = trajectories[:-1] + forward_actions[:-1, :, :-1]
@@ -22,7 +22,7 @@ def test_forward_trajectories_do_not_go_out_of_bounds():
     spin_j = 3.5
     batch_size = 10
 
-    runner = Runner(spinfoam_model=SingleVertexSpinFoam(), spin_j=spin_j)
+    runner = Runner(spinfoam_model=SingleVertexSpinFoam(spin_j=spin_j))
     trajectories, _, _ = runner._generate_forward_trajectories(batch_size, training=False)
 
     grid_length = int(2*spin_j+1)
@@ -33,7 +33,7 @@ def test_first_positions_for_forward_trajectories_are_all_0():
     spin_j = 3.5
     batch_size = 10
 
-    runner = Runner(spinfoam_model=SingleVertexSpinFoam(), spin_j=spin_j)
+    runner = Runner(spinfoam_model=SingleVertexSpinFoam(spin_j=spin_j))
     trajectories, _, _ = runner._generate_forward_trajectories(batch_size, training=False)
 
     tf.debugging.assert_equal(trajectories[0], 0)
@@ -43,7 +43,7 @@ def test_stop_action_correctly_stops_forward_trajectories():
     spin_j = 3.5
     batch_size = 10
 
-    runner = Runner(spinfoam_model=SingleVertexSpinFoam(), spin_j=spin_j)
+    runner = Runner(spinfoam_model=SingleVertexSpinFoam(spin_j=spin_j))
     trajectories, _, forward_actions = runner._generate_forward_trajectories(batch_size, training=False)
 
     stop_actions = forward_actions[:, :, -1]
@@ -61,7 +61,7 @@ def test_first_backward_actions_for_forward_trajectories_are_all_0():
     spin_j = 3.5
     batch_size = 10
 
-    runner = Runner(spinfoam_model=SingleVertexSpinFoam(), spin_j=spin_j)
+    runner = Runner(spinfoam_model=SingleVertexSpinFoam(spin_j=spin_j))
     _, backward_actions, _ = runner._generate_forward_trajectories(batch_size, training=False)
 
     tf.debugging.assert_equal(backward_actions[0], 0)
@@ -71,7 +71,7 @@ def test_actions_correctly_correspond_to_backward_trajectories():
     spin_j = 3.5
     batch_size = 10
 
-    runner = Runner(spinfoam_model=SingleVertexSpinFoam(), spin_j=spin_j)
+    runner = Runner(spinfoam_model=SingleVertexSpinFoam(spin_j=spin_j))
     trajectories, backward_actions, forward_actions = runner._generate_backward_trajectories(batch_size)
 
     next_backward_positions = trajectories[:-1] - backward_actions[:-1]
@@ -85,7 +85,7 @@ def test_backward_trajectories_do_not_go_out_of_bounds():
     spin_j = 3.5
     batch_size = 10
 
-    runner = Runner(spinfoam_model=SingleVertexSpinFoam(), spin_j=spin_j)
+    runner = Runner(spinfoam_model=SingleVertexSpinFoam(spin_j=spin_j))
     trajectories, _, _ = runner._generate_backward_trajectories(batch_size)
 
     tf.debugging.assert_greater_equal(trajectories, 0)
@@ -95,7 +95,7 @@ def test_last_positions_for_backward_trajectories_are_all_0():
     spin_j = 3.5
     batch_size = 10
 
-    runner = Runner(spinfoam_model=SingleVertexSpinFoam(), spin_j=spin_j)
+    runner = Runner(spinfoam_model=SingleVertexSpinFoam(spin_j=spin_j))
     trajectories, _, _ = runner._generate_backward_trajectories(batch_size)
 
     tf.debugging.assert_equal(trajectories[-1], 0)
@@ -105,7 +105,7 @@ def test_first_forward_actions_for_backward_trajectories_are_all_stop_actions():
     spin_j = 3.5
     batch_size = 10
 
-    runner = Runner(spinfoam_model=SingleVertexSpinFoam(), spin_j=spin_j)
+    runner = Runner(spinfoam_model=SingleVertexSpinFoam(spin_j=spin_j))
     _, _, forward_actions = runner._generate_backward_trajectories(batch_size)
 
     tf.debugging.assert_equal(forward_actions[0, :, :-1], 0)
@@ -116,7 +116,7 @@ def test_last_backward_actions_for_backward_trajectories_are_all_0():
     spin_j = 3.5
     batch_size = 10
 
-    runner = Runner(spinfoam_model=SingleVertexSpinFoam(), spin_j=spin_j)
+    runner = Runner(spinfoam_model=SingleVertexSpinFoam(spin_j=spin_j))
     _, backward_actions, _ = runner._generate_backward_trajectories(batch_size)
 
     tf.debugging.assert_equal(backward_actions[-1], 0)

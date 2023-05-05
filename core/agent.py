@@ -16,17 +16,27 @@ class Agent:
         self.env_grid_length = env_grid_length
         self.backward_action_dim = self.env_grid_dim
         self.forward_action_dim = self.env_grid_dim + 1
-
         self.exploration_rate = exploration_rate
 
-        self.log_Z0 = tf.Variable(
-            0.0, trainable=True, name="log_Z0", dtype=tf.float64
-        )
         self.policy = PolicyNetwork(
             main_layer_nodes=[self.env_grid_length*self.env_grid_dim] + list(main_layer_hidden_nodes),
             branch1_layer_nodes=list(branch1_hidden_nodes) + [self.backward_action_dim],
             branch2_layer_nodes=list(branch2_hidden_nodes) + [self.forward_action_dim],
             activation=activation
+        )
+        self.log_Z0 = tf.Variable(
+            0.0,
+            trainable=True, name="log_Z0", dtype=tf.float64
+        )
+
+    def set_initial_estimate_for_log_z0(
+            self, single_vertex_amplitudes, n_vertices, frac=0.99
+    ):
+        abs_max = tf.reduce_max(tf.math.abs(single_vertex_amplitudes))
+        estimate_log_max_reward = 2*n_vertices*tf.math.log(abs_max)
+        self.log_Z0 = tf.Variable(
+            frac*estimate_log_max_reward,
+            trainable=True, name="log_Z0", dtype=tf.float64
         )
 
     @tf.function(input_signature=[

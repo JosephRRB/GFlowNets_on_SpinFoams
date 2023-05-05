@@ -20,9 +20,7 @@ class Runner:
                  exploration_rate=0.5,
                  learning_rate=0.0005
                  ):
-        self.env = SpinFoamEnvironment(
-            spin_j=spin_j, spinfoam_model=spinfoam_model
-        )
+        self.env = SpinFoamEnvironment(spinfoam_model=spinfoam_model)
 
         self.agent = Agent(
             self.env.grid_dimension, self.env.grid_length,
@@ -31,6 +29,11 @@ class Runner:
             branch2_hidden_nodes=branch2_hidden_nodes,
             activation=activation,
             exploration_rate=exploration_rate
+        )
+        self.agent.set_initial_estimate_for_log_z0(
+            self.env.spinfoam_model.single_vertex_amplitudes,
+            self.env.spinfoam_model.n_vertices,
+            frac=0.99
         )
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
@@ -66,6 +69,8 @@ class Runner:
         evaluation_batch_size = tf.constant(evaluation_batch_size)
         for i in tf.range(n_iterations):
             ave_loss = self._training_step(n_batch_forwards, n_batch_backwards)
+            if i == 0:
+                tf.print("Nth iteration:",  i+1, "Average Loss:", ave_loss)
             ave_losses = ave_losses.write(i, ave_loss)
 
             trained_on_k_samples = (i + 1) * training_batch_size
@@ -139,6 +144,11 @@ class Runner:
             ], axis=0)
 
         rewards = self.env.get_rewards(terminal_states)
+        # logr = tf.math.log(rewards)
+        # ave_logr = tf.reduce_mean(logr)
+        # min_logr = tf.reduce_min(logr)
+        # max_logr = tf.reduce_max(logr)
+        # tf.print("ave: ", ave_logr, "\n min: ", min_logr, "\n max: ", max_logr)
         with tf.GradientTape() as tape:
             if tf.math.not_equal(n_batch_forwards, 0):
                 action_log_proba_ratios_ft = \
