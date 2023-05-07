@@ -10,37 +10,42 @@ ROOT_DIR = os.path.abspath(__file__ + "/../../")
 
 
 class Runner:
-    def __init__(self,
-                 spinfoam_model: BaseSpinFoam,
-                 main_layer_hidden_nodes=(30, 20),
-                 branch1_hidden_nodes=(10, ),
-                 branch2_hidden_nodes=(10, ),
-                 activation="swish",
-                 exploration_rate=0.5,
-                 training_fraction_from_back_traj=0.0,
-                 learning_rate=0.0005
-                 ):
+    def __init__(
+        self,
+        spinfoam_model: BaseSpinFoam,
+        main_layer_hidden_nodes=(30, 20),
+        branch1_hidden_nodes=(10,),
+        branch2_hidden_nodes=(10,),
+        activation="swish",
+        exploration_rate=0.5,
+        training_fraction_from_back_traj=0.0,
+        learning_rate=0.0005,
+    ):
         self.env = SpinFoamEnvironment(spinfoam_model=spinfoam_model)
         self.agent = Agent(
-            self.env.grid_dimension, self.env.grid_length,
+            self.env.grid_dimension,
+            self.env.grid_length,
             main_layer_hidden_nodes=main_layer_hidden_nodes,
             branch1_hidden_nodes=branch1_hidden_nodes,
             branch2_hidden_nodes=branch2_hidden_nodes,
             activation=activation,
-            exploration_rate=exploration_rate
+            exploration_rate=exploration_rate,
         )
         self.agent.set_initial_estimate_for_log_z0(
             self.env.spinfoam_model.single_vertex_amplitudes,
             self.env.spinfoam_model.n_vertices,
-            frac=0.99
+            frac=0.99,
         )
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
         self.training_fraction_from_back_traj = training_fraction_from_back_traj
 
     def train_agent(
-            self, training_batch_size, n_iterations,
-            evaluation_batch_size, generate_samples_every_m_training_samples,
-            directory_for_generated_samples
+        self,
+        training_batch_size,
+        n_iterations,
+        evaluation_batch_size,
+        generate_samples_every_m_training_samples,
+        directory_for_generated_samples,
     ):
         filepath = f"{ROOT_DIR}/{directory_for_generated_samples}"
         os.makedirs(filepath, exist_ok=True)
@@ -73,19 +78,30 @@ class Runner:
             trained_on_k_samples = (i + 1) * training_batch_size
             if trained_on_k_samples % generate_samples_every_m_training_samples == 0:
                 tf.print(
-                    "Nth iteration:",  i+1,
-                    "Trained on K samples:", trained_on_k_samples,
-                    "Average Loss:", ave_loss
+                    "Nth iteration:",
+                    i + 1,
+                    "Trained on K samples:",
+                    trained_on_k_samples,
+                    "Average Loss:",
+                    ave_loss,
                 )
                 samples = self.generate_samples_from_agent(evaluation_batch_size)
                 filename = (
                     f"{filepath}/"
-                    f"Generated samples for epoch #{i + 1} "
-                    f"after learning from {trained_on_k_samples} "
-                    "training samples.csv"
+                    f"Gen_samples_epoch_#{i + 1}"
+                    f"_after_learn_from_{trained_on_k_samples}"
+                    "_train_samples.csv"
                 )
+
+                # TODO: if the model is not the 4-simplex the header below must be changed
+
                 np.savetxt(
-                    filename, samples.numpy(), delimiter=",", fmt='%i',
+                    filename,
+                    samples.numpy(),
+                    delimiter=",",
+                    header= "intertwiner 5,intertwiner 4,intertwiner 3,intertwiner 2,intertwiner 1",
+                    fmt="%i",
+                    comments='',
                 )
 
         ave_losses = ave_losses.stack()
@@ -94,9 +110,7 @@ class Runner:
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def generate_samples_from_agent(self, batch_size):
         current_position = self.env.reset_for_forward_sampling(batch_size)
-        is_still_sampling = tf.ones(
-            shape=(batch_size, 1), dtype=tf.int32
-        )
+        is_still_sampling = tf.ones(shape=(batch_size, 1), dtype=tf.int32)
         training = tf.constant(False)
 
         at_least_one_ongoing = tf.constant(True)
@@ -110,54 +124,56 @@ class Runner:
             )
         return current_position
 
-    @tf.function(input_signature=[
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.int32)
-    ])
+    @tf.function(
+        input_signature=[
+            tf.TensorSpec(shape=None, dtype=tf.int32),
+            tf.TensorSpec(shape=None, dtype=tf.int32),
+        ]
+    )
     def _training_step(self, n_batch_forwards, n_batch_backwards):
         terminal_states = tf.constant(
             [], dtype=tf.int32, shape=(0, self.env.grid_dimension)
         )
-        action_log_proba_ratios = tf.constant(
-            [], dtype=tf.float64, shape=(0, 1)
-        )
-        forward_trajectories = (tf.constant([], dtype=tf.int32), ) * 3
-        backward_trajectories = (tf.constant([], dtype=tf.int32), ) * 3
+        action_log_proba_ratios = tf.constant([], dtype=tf.float64, shape=(0, 1))
+        forward_trajectories = (tf.constant([], dtype=tf.int32),) * 3
+        backward_trajectories = (tf.constant([], dtype=tf.int32),) * 3
         if tf.math.not_equal(n_batch_forwards, 0):
             forward_trajectories = self._generate_forward_trajectories(
-                    n_batch_forwards, training=tf.constant(True)
-                )
-            terminal_states = tf.concat([
-                terminal_states, forward_trajectories[0][-1]
-            ], axis=0)
+                n_batch_forwards, training=tf.constant(True)
+            )
+            terminal_states = tf.concat(
+                [terminal_states, forward_trajectories[0][-1]], axis=0
+            )
 
         if tf.math.not_equal(n_batch_backwards, 0):
             backward_trajectories = self._generate_backward_trajectories(
                 n_batch_backwards
             )
-            terminal_states = tf.concat([
-                terminal_states, backward_trajectories[0][0]
-            ], axis=0)
+            terminal_states = tf.concat(
+                [terminal_states, backward_trajectories[0][0]], axis=0
+            )
 
         rewards = self.env.get_rewards(terminal_states)
         with tf.GradientTape() as tape:
             if tf.math.not_equal(n_batch_forwards, 0):
-                action_log_proba_ratios_ft = \
+                action_log_proba_ratios_ft = (
                     self.agent.calculate_action_log_probability_ratio(
                         *forward_trajectories
                     )
-                action_log_proba_ratios = tf.concat([
-                    action_log_proba_ratios, action_log_proba_ratios_ft
-                ], axis=0)
+                )
+                action_log_proba_ratios = tf.concat(
+                    [action_log_proba_ratios, action_log_proba_ratios_ft], axis=0
+                )
 
             if tf.math.not_equal(n_batch_backwards, 0):
-                action_log_proba_ratios_bt = \
+                action_log_proba_ratios_bt = (
                     self.agent.calculate_action_log_probability_ratio(
                         *backward_trajectories
                     )
-                action_log_proba_ratios = tf.concat([
-                    action_log_proba_ratios, action_log_proba_ratios_bt
-                ], axis=0)
+                )
+                action_log_proba_ratios = tf.concat(
+                    [action_log_proba_ratios, action_log_proba_ratios_bt], axis=0
+                )
 
             log_Z0 = self.agent.log_Z0
             log_rewards = tf.math.log(rewards)
@@ -173,27 +189,28 @@ class Runner:
         )
         return ave_loss
 
-
     @staticmethod
-    @tf.function(input_signature=[
-        tf.TensorSpec(shape=None, dtype=tf.float64),
-        tf.TensorSpec(shape=(None, 1), dtype=tf.float64),
-        tf.TensorSpec(shape=(None, 1), dtype=tf.float64),
-    ])
+    @tf.function(
+        input_signature=[
+            tf.TensorSpec(shape=None, dtype=tf.float64),
+            tf.TensorSpec(shape=(None, 1), dtype=tf.float64),
+            tf.TensorSpec(shape=(None, 1), dtype=tf.float64),
+        ]
+    )
     def _calculate_ave_loss(log_Z0, log_rewards, action_log_proba_ratios):
         loss = tf.math.square(log_Z0 - log_rewards + action_log_proba_ratios)
         ave_loss = tf.reduce_mean(loss)
         return ave_loss
 
-    @tf.function(input_signature=[
-        tf.TensorSpec(shape=None, dtype=tf.int32),
-        tf.TensorSpec(shape=None, dtype=tf.bool)
-    ])
+    @tf.function(
+        input_signature=[
+            tf.TensorSpec(shape=None, dtype=tf.int32),
+            tf.TensorSpec(shape=None, dtype=tf.bool),
+        ]
+    )
     def _generate_forward_trajectories(self, batch_size, training):
         current_position = self.env.reset_for_forward_sampling(batch_size)
-        is_still_sampling = tf.ones(
-            shape=(batch_size, 1), dtype=tf.int32
-        )
+        is_still_sampling = tf.ones(shape=(batch_size, 1), dtype=tf.int32)
 
         no_coord_action = tf.zeros(
             shape=(batch_size, self.agent.forward_action_dim), dtype=tf.int32
@@ -249,9 +266,9 @@ class Runner:
             action = self.agent.act_backward(current_position)
             current_position = self.env.step_backward(current_position, action)
 
-            trajectories = trajectories.write(i+1, current_position)
+            trajectories = trajectories.write(i + 1, current_position)
             backward_actions = backward_actions.write(i, action)
-            forward_actions = forward_actions.write(i+1, action)
+            forward_actions = forward_actions.write(i + 1, action)
 
             i += 1
             at_least_one_ongoing = tf.math.reduce_any(
@@ -263,7 +280,7 @@ class Runner:
         stop_actions = tf.scatter_nd(
             indices=[[0]],
             updates=tf.ones(shape=(1, batch_size, 1), dtype=tf.int32),
-            shape=(trajectory_max_len, batch_size, 1)
+            shape=(trajectory_max_len, batch_size, 1),
         )
         trajectories = trajectories.stack()
         backward_actions = backward_actions.stack()
