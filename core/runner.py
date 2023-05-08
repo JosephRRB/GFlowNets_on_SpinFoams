@@ -99,12 +99,22 @@ class Runner:
                     filename,
                     samples.numpy(),
                     delimiter=",",
-                    header= "intertwiner 5,intertwiner 4,intertwiner 3,intertwiner 2,intertwiner 1",
+                    header="intertwiner 5,intertwiner 4,intertwiner 3,intertwiner 2,intertwiner 1",
                     fmt="%i",
-                    comments='',
+                    comments="",
                 )
 
         ave_losses = ave_losses.stack()
+
+        np.savetxt(
+            f"{filepath}/ave_losses.csv",
+            ave_losses.numpy(),
+            header="ave_loss",
+            delimiter=",",
+            fmt="%f",
+            comments="",
+        )
+
         return ave_losses
 
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
