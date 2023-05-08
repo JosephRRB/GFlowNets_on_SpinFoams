@@ -1,7 +1,5 @@
 import tensorflow as tf
 
-tf.keras.backend.set_floatx('float64')
-
 
 class PolicyNetwork(tf.keras.Model):
     def __init__(
@@ -25,8 +23,12 @@ class PolicyNetwork(tf.keras.Model):
             ) for n_nodes in branch2_layer_nodes[:-1]
         ]
 
-        self.branch1_layers.append(tf.keras.layers.Dense(branch1_layer_nodes[-1]))
-        self.branch2_layers.append(tf.keras.layers.Dense(branch2_layer_nodes[-1]))
+        self.branch1_layers.append(
+            tf.keras.layers.Dense(branch1_layer_nodes[-1], dtype=tf.float64)
+        )
+        self.branch2_layers.append(
+            tf.keras.layers.Dense(branch2_layer_nodes[-1], dtype=tf.float64)
+        )
 
         for main_layer, n_nodes in zip(self.main_layers, main_layer_nodes[:-1]):
             main_layer.build(n_nodes)
