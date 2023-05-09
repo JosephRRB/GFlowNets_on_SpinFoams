@@ -1,13 +1,10 @@
-from core.trainer import train_gfn
-from core.runner import Runner
-from core.environment import SingleVertexSpinFoam
-from datetime import datetime
-import matplotlib.pyplot as plt
+import datetime
+import itertools
+import pickle
 from dataclasses import dataclass
 
-# Parameters to test
-from dataclasses import dataclass
-import itertools
+from core.trainer import train_gfn
+
 
 @dataclass
 class ModelParams:
@@ -48,7 +45,7 @@ class ModelParams:
 
 single_model = ModelParams(
         sf_model = ["single_vertex_model"], # Input layer: 5 * (2 * spin  + 1), Output layer: forward = 5 + 1, backward = 5
-        spin_j = [3, 4, 5, 6],
+        spin_j = [3.5, 6.5],
         main_layer_hidden_nodes = [(64, 32, 16, 8), (64, 32, 32), (64, 16), (64, 64, 16, 16)],
         branch1_hidden_nodes = [()],
         branch2_hidden_nodes = [()],
@@ -65,7 +62,7 @@ single_model = ModelParams(
 star_model = ModelParams(
         sf_model = ["star_model"],
         spin_j = [3.5, 6.5],
-        main_layer_hidden_nodes = [(256, 128, 64, 32), (256, 64, 64, 32), (256, 192, 64, 32)],
+        main_layer_hidden_nodes = [(256, 128, 64, 32), (256, 64, 64, 32), (256, 32), (256, 192, 64, 32)],
         branch1_hidden_nodes = [()],
         branch2_hidden_nodes = [()],
         activation = ["swish", "tanh", "relu"],
@@ -81,14 +78,32 @@ star_model = ModelParams(
 models = [single_model, star_model]
 
 total_number_of_models = sum(map(len, models))
+total_number_of_models = sum(map(len, models))
 print(f"Total number of models: {total_number_of_models} to run.")
+print(f"Expected time to complete: {total_number_of_models * 5 / 60} hours.")
 
 ave_losses = {
     "single_vertex_model": [],
     "star_model": [],
 }
 
+ave_losses = {
+    "single_vertex_model": [],
+    "star_model": [],
+}
+
+start = datetime.datetime.now()
+print(f"Starting testing... {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
 for model in models:
-    for params in model:
+    print("Testing model: ", model.sf_model)
+    for i, params in enumerate(model):
         ave_losses = train_gfn(**params)
         ave_losses[model.sf_model].append((params, ave_losses))
+
+print("Finished testing... ", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+print("Total time taken: ", datetime.datetime.now() - start)
+print("Saving results...")
+
+with open("ave_losses.pickle", "wb") as f:
+    pickle.dump(ave_losses, f)
