@@ -5,6 +5,7 @@ import numpy as np
 
 from core.environment import SpinFoamEnvironment, BaseSpinFoam
 from core.agent import Agent
+from core.policy_network import PolicyNetwork
 
 ROOT_DIR = os.path.abspath(__file__ + "/../../")
 
@@ -117,6 +118,7 @@ class Runner:
             comments="",
         )
 
+        self.save_agent_policy(filepath)
         return ave_losses
 
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
@@ -298,3 +300,12 @@ class Runner:
         backward_actions = backward_actions.stack()
         forward_actions = tf.concat([forward_actions.stack(), stop_actions], axis=2)
         return trajectories, backward_actions, forward_actions
+
+    def save_agent_policy(self, path):
+        self.agent.policy.save(f"{path}/trained_agent_policy")
+
+    def load_agent_policy(self, path):
+        return tf.keras.models.load_model(
+            f"{path}/trained_agent_policy",
+            custom_objects={"PolicyNetwork": PolicyNetwork}
+        )
