@@ -82,30 +82,28 @@ total_number_of_models = sum(map(len, models))
 print(f"Total number of models: {total_number_of_models} to run.")
 print(f"Expected time to complete: {total_number_of_models * 5 / 60} hours.")
 
-ave_losses = {
-    "single_vertex_model": [],
-    "star_model": [],
-}
-
-ave_losses = {
-    "single_vertex_model": [],
-    "star_model": [],
+models_avg_losses = {
+    model.sf_model[0]: []
+    for model in models
 }
 
 start = datetime.datetime.now()
-print(f"Starting testing... {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+print("Starting testing:", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "\n")
 
 for model in models:
     num_models = len(model)
-    print("Testing model:", model.sf_model[0])
+    print("Testing model:", model.sf_model[0], "\n")
     for i, params in enumerate(model):
         print(f"Starting training for parameter set {i} of {num_models}")
-        ave_losses = train_gfn(**params)
-        ave_losses[model.sf_model[0]].append((params, ave_losses))
+        training_start = datetime.datetime.now()
+        avg_losses = train_gfn(**params)
+        training_time = datetime.datetime.now() - training_start
+        print("Finished training, elapsed time:", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        models_avg_losses[model.sf_model[0]].append((training_time, params, avg_losses))
 
-print("Finished testing... ", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+print("Finished testing:", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 print("Total time taken: ", datetime.datetime.now() - start)
-print("Saving results...")
+print("Saving results")
 
 with open("ave_losses.pickle", "wb") as f:
-    pickle.dump(ave_losses, f)
+    pickle.dump(models_avg_losses, f)

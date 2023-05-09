@@ -2,6 +2,16 @@
 ######################
 private_codes
 
+# generated sammples folder
+######################
+*generated_samples*
+
+# egg files
+*.egg*
+
+# vscode files
+*.vscode*
+
 # data stored during MCMC #
 ######################
 data/MCMC/**
