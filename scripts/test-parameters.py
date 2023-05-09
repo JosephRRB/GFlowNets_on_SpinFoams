@@ -60,7 +60,7 @@ single_model = ModelParams(
 )
 
 star_model = ModelParams(
-        sf_model = ["star_model"],
+        sf_model = ["star_model"], # Input layer: 20 * (2 * spin  + 1), Output layer: forward = 20 + 1, backward = 20
         spin_j = [3.5, 6.5],
         main_layer_hidden_nodes = [(256, 128, 64, 32), (256, 64, 64, 32), (256, 32), (256, 192, 64, 32)],
         branch1_hidden_nodes = [()],
@@ -96,10 +96,12 @@ start = datetime.datetime.now()
 print(f"Starting testing... {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 for model in models:
-    print("Testing model: ", model.sf_model)
+    num_models = len(model)
+    print("Testing model:", model.sf_model[0])
     for i, params in enumerate(model):
+        print(f"Starting training for parameter set {i} of {num_models}")
         ave_losses = train_gfn(**params)
-        ave_losses[model.sf_model].append((params, ave_losses))
+        ave_losses[model.sf_model[0]].append((params, ave_losses))
 
 print("Finished testing... ", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 print("Total time taken: ", datetime.datetime.now() - start)
