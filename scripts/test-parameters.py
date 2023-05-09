@@ -53,10 +53,10 @@ single_model = ModelParams(
         exploration_rate = [0.5],
         training_fraction_from_back_traj = [0.0],
         learning_rate = [0.0005],
-        batch_size = [1e3],
-        n_iterations = [1e4],
-        evaluation_batch_size = [1e6],
-        generate_samples_every_m_training_samples = [1e6],
+        batch_size = [int(1e3)],
+        n_iterations = [int(1e4)],
+        evaluation_batch_size = [int(1e6)],
+        generate_samples_every_m_training_samples = [int(1e6)],
 )
 
 star_model = ModelParams(
@@ -69,10 +69,10 @@ star_model = ModelParams(
         exploration_rate = [0.5],
         training_fraction_from_back_traj = [1.0],
         learning_rate = [0.0005],
-        batch_size = [1e3],
-        n_iterations = [1e4],
-        evaluation_batch_size = [1e6],
-        generate_samples_every_m_training_samples = [1e6],
+        batch_size = [int(1e3)],
+        n_iterations = [int(1e4)],
+        evaluation_batch_size = [int(1e6)],
+        generate_samples_every_m_training_samples = [int(1e6)],
 )
 
 models = [single_model, star_model]

@@ -17,6 +17,7 @@ def train_gfn(
     n_iterations=int(1e4),
     evaluation_batch_size=int(1e6),
     generate_samples_every_m_training_samples=int(1e6),
+    include_datetime_in_directory_name=True,
 ):
     """
     Train a GFlowNet agent to sample grid coordinates with probabilities proportional 
@@ -120,11 +121,13 @@ def train_gfn(
             "Spinfoam model not yet implemented. "
             "Custom Spinfoam class can be made."
         )
-        
-    training_run_datetime = datetime.now().strftime("%B %d, %Y at %H:%M:%S")
+    
     directory_for_generated_samples = (
-        f"generated_samples_during_training/{sf_model}/j={spin_j}/Training run on {training_run_datetime}"
+        f"generated_samples_during_training/{sf_model}/j={spin_j}/"
     )
+    if include_datetime_in_directory_name:
+        training_run_datetime = datetime.now().strftime("%B %d, %Y at %H:%M:%S")
+        directory_for_generated_samples += f"Training run on {training_run_datetime}/"
     
     runner = Runner(
         spinfoam_model=spinfoam_model,

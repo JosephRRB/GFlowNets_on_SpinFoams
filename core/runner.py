@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import tensorflow as tf
 import numpy as np
@@ -7,7 +8,7 @@ from core.environment import SpinFoamEnvironment, BaseSpinFoam
 from core.agent import Agent
 from core.policy_network import PolicyNetwork
 
-ROOT_DIR = os.path.abspath(__file__ + "/../../")
+ROOT_DIR = Path(os.path.abspath(__file__ + "/../../"))
 
 
 class Runner:
@@ -48,7 +49,7 @@ class Runner:
         generate_samples_every_m_training_samples,
         directory_for_generated_samples,
     ):
-        filepath = f"{ROOT_DIR}/{directory_for_generated_samples}"
+        filepath = Path(f"{ROOT_DIR}/{directory_for_generated_samples}")
         os.makedirs(filepath, exist_ok=True)
 
         ave_losses = tf.TensorArray(dtype=tf.float64, size=0, dynamic_size=True)
@@ -87,7 +88,7 @@ class Runner:
                     ave_loss,
                 )
                 samples = self.generate_samples_from_agent(evaluation_batch_size)
-                filename = (
+                filename = Path(
                     f"{filepath}/"
                     f"Gen_samples_epoch_#{i + 1}"
                     f"_after_learn_from_{trained_on_k_samples}"
@@ -110,7 +111,7 @@ class Runner:
         ave_losses = ave_losses.stack()
 
         np.savetxt(
-            f"{filepath}/ave_losses.csv",
+            Path(f"{filepath}/ave_losses.csv"),
             ave_losses.numpy(),
             header="ave_loss",
             delimiter=",",
@@ -302,10 +303,10 @@ class Runner:
         return trajectories, backward_actions, forward_actions
 
     def save_agent_policy(self, path):
-        self.agent.policy.save(f"{path}/trained_agent_policy")
+        self.agent.policy.save(Path(f"{path}/trained_agent_policy"))
 
     def load_agent_policy(self, path):
         return tf.keras.models.load_model(
-            f"{path}/trained_agent_policy",
+            Path(f"{path}/trained_agent_policy"),
             custom_objects={"PolicyNetwork": PolicyNetwork}
         )
