@@ -6,6 +6,12 @@ class PolicyNetwork(tf.keras.Model):
         self, main_layer_nodes, branch1_layer_nodes, branch2_layer_nodes, activation
     ):
         super().__init__()
+        self.config = {
+            "main_layer_nodes": main_layer_nodes,
+            "branch1_layer_nodes": branch1_layer_nodes,
+            "branch2_layer_nodes": branch2_layer_nodes,
+            "activation": activation
+        }
         self.flatten = tf.keras.layers.Flatten()
         self.main_layers = [
             tf.keras.layers.Dense(
@@ -38,6 +44,9 @@ class PolicyNetwork(tf.keras.Model):
 
         for b2_layer, n_nodes in zip(self.branch2_layers, [main_layer_nodes[-1]] + branch2_layer_nodes[:-1]):
             b2_layer.build(n_nodes)
+
+    def get_config(self):
+        return self.config
 
     def call(self, data_input):
         hidden = self.flatten(data_input)
