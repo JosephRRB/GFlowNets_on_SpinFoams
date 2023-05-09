@@ -93,13 +93,15 @@ class Runner:
                     "_train_samples.csv"
                 )
 
-                # TODO: if the model is not the 4-simplex the header below must be changed
+                header = ",".join(
+                    [f"intertwiner {i}" for i in range(self.env.spinfoam_model.n_boundary_intertwiners)]
+                )
 
                 np.savetxt(
                     filename,
                     samples.numpy(),
                     delimiter=",",
-                    header="intertwiner 5,intertwiner 4,intertwiner 3,intertwiner 2,intertwiner 1",
+                    header=header,
                     fmt="%i",
                     comments="",
                 )
