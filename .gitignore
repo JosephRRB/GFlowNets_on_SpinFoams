@@ -5,6 +5,7 @@ private_codes
 # generated sammples folder
 ######################
 *generated_samples*
+scripts/results/
 
 # egg files
 *.egg*
