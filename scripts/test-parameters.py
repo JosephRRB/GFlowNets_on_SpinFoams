@@ -82,7 +82,7 @@ models = [single_model, star_model]
 total_number_of_models = sum(map(len, models))
 total_number_of_models = sum(map(len, models))
 tf.print(f"Total number of models:", total_number_of_models)
-tf.print(f"Expected time to complete: {total_number_of_models * 5 / 60} hours.")
+tf.print(f"Expected time to complete:", total_number_of_models * 5 / 60, "hours")
 
 models_avg_losses = {
     model.sf_model[0]: []
@@ -100,11 +100,11 @@ for model in models:
         training_start = datetime.datetime.now()
         avg_losses = train_gfn(**params)
         training_time = datetime.datetime.now() - training_start
-        tf.print("Finished training, elapsed time:", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        tf.print("Finished training, elapsed time:", (datetime.datetime.now() - training_start).total_seconds() / 60, "minutes")
         models_avg_losses[model.sf_model[0]].append((training_time, params, avg_losses))
 
 tf.print("Finished testing:", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-tf.print("Total time taken: ", datetime.datetime.now() - start)
+tf.print("Total time taken: ", (datetime.datetime.now() - start).total_seconds() / 60, "minutes")
 tf.print("Saving results")
 
 with open("ave_losses.pickle", "wb") as f:
