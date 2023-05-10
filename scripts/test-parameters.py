@@ -81,7 +81,7 @@ models = [single_model, star_model]
 
 total_number_of_models = sum(map(len, models))
 total_number_of_models = sum(map(len, models))
-tf.print(f"Total number of models: {total_number_of_models} to run.")
+tf.print(f"Total number of models:", total_number_of_models)
 tf.print(f"Expected time to complete: {total_number_of_models * 5 / 60} hours.")
 
 models_avg_losses = {
