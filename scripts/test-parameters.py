@@ -58,7 +58,7 @@ class ModelParams:
 
 single_model = ModelParams(
         sf_model = ["single_vertex_model"], # Input layer: 5 * (2 * spin  + 1), Output layer: forward = 5 + 1, backward = 5
-        spin_j = [3.5, 6.5],
+        spin_j = [3.5, 6.0],
         main_layer_hidden_nodes = [(64, 32, 16, 8), (64, 32, 32), (64, 16), (64, 64, 16, 16)],
         branch1_hidden_nodes = [()],
         branch2_hidden_nodes = [()],
@@ -74,7 +74,7 @@ single_model = ModelParams(
 
 star_model = ModelParams(
         sf_model = ["star_model"], # Input layer: 20 * (2 * spin  + 1), Output layer: forward = 20 + 1, backward = 20
-        spin_j = [3.5, 6.5],
+        spin_j = [3.5, 6.0],
         main_layer_hidden_nodes = [(256, 128, 64, 32), (256, 64, 64, 32), (256, 32), (256, 192, 64, 32)],
         branch1_hidden_nodes = [()],
         branch2_hidden_nodes = [()],
@@ -92,8 +92,8 @@ models = [single_model, star_model]
 
 total_number_of_models = sum(map(len, models))
 total_number_of_models = sum(map(len, models))
-tf.print(f"Total number of models:", total_number_of_models)
-tf.print(f"Expected time to complete:", total_number_of_models * 5 / 60, "hours")
+tf.print(f"\n\nTotal number of models:", total_number_of_models)
+tf.print(f"Expected time to complete:", total_number_of_models * 5 / 60, "hours\n")
 
 models_avg_losses = {
     model.sf_model[0]: []
@@ -107,7 +107,7 @@ for model in models:
     num_models = len(model)
     tf.print("Testing model:", model.sf_model[0], "\n")
     with open(f"results/{model.sf_model[0]}-params.pkl", "wb") as f:
-        f.write("training_time, params, avg_losses\n")
+        f.write(b"training_time, params, avg_losses\n")
     for i, params in enumerate(model):
         tf.print(f"Starting training for parameter set {i} of {num_models}")
         training_start = datetime.datetime.now()
@@ -120,5 +120,5 @@ with open(f"results/{model.sf_model[0]}-params.pkl", "ab") as f:
     pickle.dump(f, training_time, params, avg_losses)
 
 tf.print("Finished testing:", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-tf.print("Total time taken: ", (datetime.datetime.now() - start).total_seconds() / 60, "minutes")
+tf.print("Total time taken: ", (datetime.datetime.now() - start).total_seconds() / 60, "minutes\n")
 tf.print("Saving results")
