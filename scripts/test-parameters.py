@@ -99,8 +99,8 @@ for model in models:
         tf.print(f"Starting training for parameter set {i} of {num_models}")
         training_start = datetime.datetime.now()
         avg_losses = train_gfn(**params)
-        training_time = datetime.datetime.now() - training_start
-        tf.print("Finished training, elapsed time:", (datetime.datetime.now() - training_start).total_seconds() / 60, "minutes")
+        training_time = (datetime.datetime.now() - training_start).total_seconds()
+        tf.print("Finished training, elapsed time:", training_time / 60, "minutes")
         models_avg_losses[model.sf_model[0]].append((training_time, params, avg_losses))
 
 tf.print("Finished testing:", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
