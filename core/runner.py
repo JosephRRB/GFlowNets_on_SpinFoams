@@ -96,7 +96,7 @@ class Runner:
                 )
 
                 header = ",".join(
-                    [f"intertwiner {i}" for i in range(self.env.spinfoam_model.n_boundary_intertwiners)]
+                    [f"intertwiner {i+1}" for i in reversed(range(self.env.spinfoam_model.n_boundary_intertwiners))]
                 )
 
                 np.savetxt(
