@@ -47,10 +47,10 @@ class Runner:
         n_iterations,
         evaluation_batch_size,
         generate_samples_every_m_training_samples,
-        directory_for_generated_samples,
+        base_data_folder,
     ):
-        filepath = Path(f"{ROOT_DIR}/{directory_for_generated_samples}")
-        os.makedirs(filepath, exist_ok=True)
+        directory_for_generated_samples = Path(f"{ROOT_DIR}/{base_data_folder}/samples")
+        os.makedirs(directory_for_generated_samples, exist_ok=True)
 
         ave_losses = tf.TensorArray(dtype=tf.float64, size=0, dynamic_size=True)
         if generate_samples_every_m_training_samples % training_batch_size != 0:
@@ -89,8 +89,8 @@ class Runner:
                 )
                 samples = self.generate_samples_from_agent(evaluation_batch_size)
                 filename = Path(
-                    f"{filepath}/"
-                    f"Gen_samples_epoch_#{i + 1}"
+                    f"{directory_for_generated_samples}/"
+                    f"epoch_{i + 1}"
                     f"_after_learn_from_{trained_on_k_samples}"
                     "_train_samples.csv"
                 )
@@ -111,15 +111,15 @@ class Runner:
         ave_losses = ave_losses.stack()
 
         np.savetxt(
-            Path(f"{filepath}/ave_losses.csv"),
+            Path(f"{base_data_folder}/average_losses.csv"),
             ave_losses.numpy(),
-            header="ave_loss",
+            header="average_loss",
             delimiter=",",
             fmt="%f",
             comments="",
         )
 
-        self.save_agent_policy(filepath)
+        self.save_agent_policy(base_data_folder)
         return ave_losses
 
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
