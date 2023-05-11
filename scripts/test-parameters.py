@@ -1,5 +1,6 @@
 import datetime
 import itertools
+import os
 import pickle
 from dataclasses import dataclass
 
@@ -103,6 +104,7 @@ models_avg_losses = {
 start = datetime.datetime.now()
 tf.print("Starting testing:", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "\n")
 
+os.makedirs("results", exist_ok=True)
 for model in models:
     num_models = len(model)
     tf.print("Testing model:", model.sf_model[0], "\n")
@@ -113,11 +115,11 @@ for model in models:
         training_start = datetime.datetime.now()
         avg_losses = train_gfn(**params, include_datetime_in_directory_name=False)
         training_time = (datetime.datetime.now() - training_start).total_seconds()
-        tf.print("Finished training, elapsed time:", training_time / 60, "minutes")
-        models_avg_losses[model.sf_model[0]].append((training_time, params, avg_losses))
+        tf.print("Finished training, elapsed time:", training_time / 60, "minutes\n")
+        models_avg_losses[model.sf_model[0]].append((training_time, avg_losses, params))
 
-with open(f"results/{model.sf_model[0]}-params.pkl", "ab") as f:
-    pickle.dump(f, training_time, params, avg_losses)
+        with open(f"results/{model.sf_model[0]}-params.pkl", "ab") as f:
+            pickle.dump((training_time, params, avg_losses), f)
 
 tf.print("Finished testing:", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 tf.print("Total time taken: ", (datetime.datetime.now() - start).total_seconds() / 60, "minutes\n")
