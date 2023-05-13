@@ -204,7 +204,7 @@ def train_gfn(
     return ave_losses
 
 
-def test_models(
+def train_models(
     modelparams
 ) :
     """

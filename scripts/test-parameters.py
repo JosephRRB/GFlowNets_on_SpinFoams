@@ -3,7 +3,7 @@ import os
 
 import tensorflow as tf
 
-from core.trainer import ModelParams, test_models
+from core.trainer import ModelParams, train_models
 
 single_model = ModelParams(
         sf_model = ["single_vertex_model"], # Input layer: 5 * (2 * spin  + 1), Output layer: forward = 5 + 1, backward = 5
@@ -49,7 +49,7 @@ tf.print("Starting testing:", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%
 
 os.makedirs("results", exist_ok=True)
 for model in models:
-    test_models(model)
+    train_models(model)
 
 tf.print("Finished testing:", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 tf.print(f"Total time taken: {(datetime.datetime.now() - start).total_seconds() / 60:.2f} minutes\n")
