@@ -1,9 +1,72 @@
+import itertools
+import json
+import os
+from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
-from core.runner import Runner
+import numpy as np
+import tensorflow as tf
+
 from core.environment import SingleVertexSpinFoam, StarModelSpinFoam
+from core.runner import Runner
+from core.utils import print_and_log
+
+ROOT_DIR = Path(os.path.abspath(__file__ + "/../../"))
+
+@dataclass
+class ModelParams:
+    spin_j: float 
+    sf_model: str
+    main_layer_hidden_nodes: tuple
+    branch1_hidden_nodes: tuple
+    branch2_hidden_nodes: tuple
+    activation: str
+    exploration_rate: float
+    training_fraction_from_back_traj: float
+    learning_rate: float
+    batch_size: int
+    n_iterations: int
+    evaluation_batch_size: int
+    generate_samples_every_m_training_samples: int
+    _params_list: list = None
+    _idx: int = 0
+    
+    def __post_init__(self, *args, **kwargs):
+        self._params_list = list(itertools.product(*self.params()))
+    
+    def fields(self):
+        return list(filter(
+            lambda x: x.startswith("_") == False,
+            self.__dataclass_fields__.keys()
+        ))
+
+    def params(self):
+        return (getattr(self, field, ()) for field in self.fields())
+    
+    def __len__(self):
+        return len(self._params_list)
+    
+    def __iter__(self):
+        self._idx = 0
+        return self
+
+    def __next__(self):
+        if self._idx >= len(self):
+            raise StopIteration
+
+        p = {
+            key: value
+            for key, value in zip(self.fields(), self._params_list[self._idx])
+        }
+        self._idx += 1
+        return p
+
 
 def train_gfn(
+    *,
+    model_save_dir,
+    logging_file=None,
     spin_j=3.5, 
     sf_model="single_vertex_model",
     main_layer_hidden_nodes=(30, 20), 
@@ -17,7 +80,6 @@ def train_gfn(
     n_iterations=int(1e4),
     evaluation_batch_size=int(1e6),
     generate_samples_every_m_training_samples=int(1e6),
-    include_datetime_in_directory_name=True,
 ):
     """
     Train a GFlowNet agent to sample grid coordinates with probabilities proportional 
@@ -122,13 +184,6 @@ def train_gfn(
             "Custom Spinfoam class can be made."
         )
     
-    directory_for_generated_samples = (
-        f"generated_samples_during_training/{sf_model}/j={spin_j}/"
-    )
-    if include_datetime_in_directory_name:
-        training_run_datetime = datetime.now().strftime("%B %d, %Y at %H:%M:%S")
-        directory_for_generated_samples += f"Training run on {training_run_datetime}/"
-    
     runner = Runner(
         spinfoam_model=spinfoam_model,
         main_layer_hidden_nodes=main_layer_hidden_nodes,
@@ -143,8 +198,72 @@ def train_gfn(
     ave_losses = runner.train_agent(
         batch_size, n_iterations, 
         evaluation_batch_size, generate_samples_every_m_training_samples,
-        directory_for_generated_samples
+        model_save_dir, logging_file
     )
     
     return ave_losses
+
+
+def test_models(
+    modelparams
+) :
+    """
+    Trains the agent and saves the model parameters and training data to a directory.
     
+    Parameters
+    ----------
+    
+    modelparams: (dict)
+                - Dictionary containing the model parameters. These are the parameters 
+                  for the SpinFoam model and the neural network architecture. 
+                - E.g.: modelparams = {
+                            "spin_j": 1.5,
+                            "sf_model": "single_vertex_model",
+                            "main_layer_hidden_nodes": (128, 64, 32),
+                            "branch1_hidden_nodes": (16, 8),
+                            "branch2_hidden_nodes": (16, 8),
+                            "activation": "elu",
+                            "exploration_rate": 0.1,
+                            "training_fraction_from_back_traj": 0.5,
+                            "learning_rate": 0.001,
+                            "batch_size": 100,
+                            "n_iterations": 1000,
+                            "evaluation_batch_size": 1000,
+                            "generate_samples_every_m_training_samples": 10,
+                        }
+                        
+    model_directory: (str)
+                - Path to the directory where the model parameters and training data will be saved
+    """
+    # Create the directory for the models
+    model_base_directory = Path(ROOT_DIR, "models", modelparams.sf_model[0])
+    os.makedirs(model_base_directory, exist_ok=True)
+    
+    num_models = len(modelparams)
+    for idx, params in enumerate(modelparams):
+        # Load current models in the directory, if any.
+        # The next model will be saved with the next available number
+        model_dir = model_base_directory / Path(f"model_{len(os.listdir(model_base_directory))}")
+        os.makedirs(model_dir, exist_ok=True)
+        
+        logging_file = model_dir / Path("training_log.txt")
+        logging_file.touch()
+    
+        model_results_file = model_dir / Path("results.npy")
+        model_results_file.touch()
+        
+        # Save the model parameters to file
+        with open(model_dir / Path("modelparams.json"), "w") as f:
+            json.dump(params, f)
+        
+        # Train the model
+        print_and_log(f"Testing model: {params['sf_model']}\n", logging_file)
+        print_and_log(f"Starting training for parameter set {idx} of {num_models}\n", logging_file)
+        
+        training_start = datetime.now()
+        avg_losses = train_gfn(model_save_dir=model_dir, logging_file=logging_file, **params)
+        training_time = (datetime.now() - training_start).total_seconds()
+        
+        print_and_log(f"\nFinished training, elapsed time: {training_time / 60:.2f} minutes\n", logging_file)
+
+        np.save(model_dir / Path("results.npy"), np.array([training_time, avg_losses]))
