@@ -252,6 +252,9 @@ def train_models(
         model_results_file = model_dir / Path("results.npy")
         model_results_file.touch()
         
+        training_time_file = model_dir / Path("training_time.txt")
+        training_time_file.touch()
+        
         # Save the model parameters to file
         with open(model_dir / Path("modelparams.json"), "w") as f:
             json.dump(params, f)
@@ -266,4 +269,7 @@ def train_models(
         
         print_and_log(f"\nFinished training, elapsed time: {training_time / 60:.2f} minutes\n", logging_file)
 
-        np.save(model_dir / Path("results.npy"), np.array([training_time, avg_losses]))
+        # Save the results
+        np.save(model_dir / Path("results.npy"), avg_losses.numpy())
+        with open(training_time_file, "w") as f:
+            f.write(str(training_time))

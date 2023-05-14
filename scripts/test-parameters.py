@@ -40,7 +40,6 @@ star_model = ModelParams(
 models = [single_model, star_model]
 
 total_number_of_models = sum(map(len, models))
-total_number_of_models = sum(map(len, models))
 tf.print(f"\n\nTotal number of models:", total_number_of_models)
 tf.print(f"Expected time to complete (5mins per model):", total_number_of_models * 5 / 60, "hours\n")
 
