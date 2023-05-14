@@ -1,12 +1,13 @@
 import os
 from pathlib import Path
 
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
 
-from core.environment import SpinFoamEnvironment, BaseSpinFoam
 from core.agent import Agent
+from core.environment import BaseSpinFoam, SpinFoamEnvironment
 from core.policy_network import PolicyNetwork
+from core.utils import print_and_log
 
 ROOT_DIR = Path(os.path.abspath(__file__ + "/../../"))
 
@@ -48,9 +49,10 @@ class Runner:
         evaluation_batch_size,
         generate_samples_every_m_training_samples,
         base_data_folder,
+        logging_file=None
     ):
-        directory_for_generated_samples = Path(f"{ROOT_DIR}/{base_data_folder}/samples")
-        os.makedirs(directory_for_generated_samples, exist_ok=True)
+        generated_samples_dir = Path(base_data_folder, "generated_samples")
+        os.makedirs(generated_samples_dir, exist_ok=True)
 
         ave_losses = tf.TensorArray(dtype=tf.float64, size=0, dynamic_size=True)
         if generate_samples_every_m_training_samples % training_batch_size != 0:
@@ -79,28 +81,26 @@ class Runner:
 
             trained_on_k_samples = (i + 1) * training_batch_size
             if trained_on_k_samples % generate_samples_every_m_training_samples == 0:
-                tf.print(
-                    "Nth iteration:",
-                    i + 1,
-                    "Trained on K samples:",
-                    trained_on_k_samples,
-                    "Average Loss:",
-                    ave_loss,
+                print_and_log(
+                    f"{i + 1}th iteration trained on {trained_on_k_samples} samples with average loss {ave_loss}",
+                    logging_file
                 )
                 samples = self.generate_samples_from_agent(evaluation_batch_size)
-                filename = Path(
-                    f"{directory_for_generated_samples}/"
+                
+                samples_file = Path(
+                    f"{generated_samples_dir}/"
                     f"epoch_{i + 1}"
                     f"_after_learn_from_{trained_on_k_samples}"
                     "_train_samples.csv"
                 )
+                samples_file.touch()
 
                 header = ",".join(
                     [f"intertwiner {i+1}" for i in reversed(range(self.env.spinfoam_model.n_boundary_intertwiners))]
                 )
 
                 np.savetxt(
-                    filename,
+                    samples_file,
                     samples.numpy(),
                     delimiter=",",
                     header=header,
@@ -110,8 +110,10 @@ class Runner:
 
         ave_losses = ave_losses.stack()
 
+        avg_loss_file = Path(base_data_folder, "average_losses.csv")
+        avg_loss_file.touch()
         np.savetxt(
-            Path(f"{base_data_folder}/average_losses.csv"),
+            avg_loss_file,
             ave_losses.numpy(),
             header="average_loss",
             delimiter=",",
