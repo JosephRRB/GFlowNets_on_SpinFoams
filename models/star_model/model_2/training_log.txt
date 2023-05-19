@@ -1,0 +1,17 @@
+Testing model: star_model
+
+Starting training for parameter set 2 of 24
+
+1000th iteration trained on 1000000 samples with average loss 28.60633612088286
+2000th iteration trained on 2000000 samples with average loss 25.291118240309785
+3000th iteration trained on 3000000 samples with average loss 25.677084790428996
+4000th iteration trained on 4000000 samples with average loss 23.054450735094562
+5000th iteration trained on 5000000 samples with average loss 21.58118363939068
+6000th iteration trained on 6000000 samples with average loss 20.605897833913744
+7000th iteration trained on 7000000 samples with average loss 20.394499626448134
+8000th iteration trained on 8000000 samples with average loss 17.326247487252004
+9000th iteration trained on 9000000 samples with average loss 15.033532934626418
+10000th iteration trained on 10000000 samples with average loss 16.926437877350033
+
+Finished training, elapsed time: 15.93 minutes
+

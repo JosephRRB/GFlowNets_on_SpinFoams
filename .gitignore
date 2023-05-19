@@ -2,15 +2,21 @@
 ######################
 private_codes
 
-# generated sammples folder
+# Generated samples #
 ######################
-*generated_samples*
-scripts/results/
+models/*/*/generated_samples
+models/*/*/trained_agent_policy
+
+# Tensor flow virtual env
+######################
+tensorflow
 
 # egg files
+######################
 *.egg*
 
 # vscode files
+######################
 *.vscode*
 
 # data stored during MCMC #

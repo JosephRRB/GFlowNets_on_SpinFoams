@@ -46,7 +46,6 @@ tf.print(f"Expected time to complete (5mins per model):", total_number_of_models
 start = datetime.datetime.now()
 tf.print("Starting testing:", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "\n")
 
-os.makedirs("results", exist_ok=True)
 for model in models:
     train_models(model)
 
