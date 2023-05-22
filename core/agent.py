@@ -45,6 +45,51 @@ class Agent:
         tf.TensorSpec(shape=None, dtype=tf.bool)
     ])
     def act_forward(self, current_position, is_still_sampling, training):
+        """
+        Select an action to generate a valid forward state transition. The
+        current state is fed to the policy network which returns logits for the
+        forward actions. The logits of invalid actions are then masked to avoid
+        transitioning to states outside the environment grid. Based on the
+        resulting masked logits, an action is chosen and encoded accordingly.
+        Set the encoded action to zero (representing no action) if the
+        trajectory has been flagged to be finished and update that trajectory
+        flag if the terminate action was chosen for it.
+
+        Parameters:
+        -----------
+        current_position:
+            Batch of states shown to the agent. Based on these states, the agent
+            will choose a valid action for each to transition them forward.
+
+        is_still_sampling:
+            Flag for each state in current_position. This represents whether the
+            agent has terminated the generation of new states in a previous
+            iteration. If is_still_sampling=0 for a specific state, the agent
+            will not make an action on it so that it will remain the same for
+            the next iterations.
+
+        training:
+            Boolean flag telling the agent whether it's generating trajectories
+            for training or not. If training=True, noise is added to the action
+            probabilities in order to encourage exploration of the environment
+            grid. The amount of noise is governed by self.exploration_rate
+
+        Return:
+        -------
+        forward_actions:
+            Batch of one-hot encoded forward actions for each state in
+            current_position. A 1 in the i^{th} index represents incrementing
+            the i^{th} coordinate in a state by 1. The dimensionality is one
+            more than the environment grid dimension so that a 1 in this last
+            index represents the terminate action. If all are 0, this means that
+            the agent will not change the state (this should only happen when
+            the terminate action has been chosen in a previous iteration).
+
+        will_continue_to_sample:
+            Updated flags of is_still_sampling for the next iteration. If the
+            terminate action is chosen, the flag will be updated from 1 to 0 and
+            will remain 0 for the rest of the trajectory generation.
+        """
         _, forward_action_logits = self._get_action_logits(current_position)
         if training:
             noise_per_action = tf.random.uniform(
