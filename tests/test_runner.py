@@ -121,3 +121,119 @@ def test_last_backward_actions_for_backward_trajectories_are_all_0():
 
     tf.debugging.assert_equal(backward_actions[-1], 0)
 
+
+def test_gradients_are_not_affected_by_padding_in_forward_trajectories():
+    spin_j = 3.5
+
+    runner = Runner(spinfoam_model=SingleVertexSpinFoam(spin_j=spin_j))
+
+    trajectory = tf.constant([
+        [[0, 0, 0, 0, 0]],
+        [[0, 0, 0, 0, 1]],
+        [[0, 0, 0, 1, 1]],  # <- terminal state
+        [[0, 0, 0, 1, 1]],  # <- padding
+        [[0, 0, 0, 1, 1]],  # <- padding
+    ])
+    forward_actions = tf.constant([
+        [[0, 0, 0, 0, 1, 0]],
+        [[0, 0, 0, 1, 0, 0]],
+        [[0, 0, 0, 0, 0, 1]],  # <- terminate action
+        [[0, 0, 0, 0, 0, 0]],  # <- padding, no action
+        [[0, 0, 0, 0, 0, 0]],  # <- padding, no action
+    ])
+    backward_actions = tf.constant([
+        [[0, 0, 0, 0, 0]],  # <- no action, defined for grid origin
+        [[0, 0, 0, 0, 1]],
+        [[0, 0, 0, 1, 0]],
+        [[0, 0, 0, 0, 0]],  # <- padding, no action
+        [[0, 0, 0, 0, 0]],  # <- padding, no action
+    ])
+
+    dummy_log_Z0 = tf.constant(0.0, dtype=tf.float64)
+    dummy_log_rewards = tf.zeros(shape=(trajectory.shape[0], 1), dtype=tf.float64)
+
+    with tf.GradientTape() as tape_1:
+        padded_log_proba_ratios = runner.agent.calculate_action_log_probability_ratio(
+            trajectory, backward_actions, forward_actions
+        )
+        padded_ave_loss = runner._calculate_ave_loss(
+            dummy_log_Z0, dummy_log_rewards, padded_log_proba_ratios
+        )
+
+    padded_grads = tape_1.gradient(
+        padded_ave_loss, runner.agent.policy.trainable_weights
+    )
+
+    with tf.GradientTape() as tape_2:
+        unpadded_log_proba_ratios = runner.agent.calculate_action_log_probability_ratio(
+            trajectory[:3], backward_actions[:3], forward_actions[:3]
+        )
+        unpadded_ave_loss = runner._calculate_ave_loss(
+            dummy_log_Z0, dummy_log_rewards, unpadded_log_proba_ratios
+        )
+
+    unpadded_grads = tape_2.gradient(
+        unpadded_ave_loss, runner.agent.policy.trainable_weights
+    )
+
+    for pad, unpad in zip(padded_grads, unpadded_grads):
+        tf.debugging.assert_near(pad, unpad)
+
+
+def test_gradients_are_not_affected_by_padding_in_backward_trajectories():
+    spin_j = 3.5
+
+    runner = Runner(spinfoam_model=SingleVertexSpinFoam(spin_j=spin_j))
+
+    trajectory = tf.constant([
+        [[0, 0, 0, 2, 1]],
+        [[0, 0, 0, 2, 0]],
+        [[0, 0, 0, 1, 0]],
+        [[0, 0, 0, 0, 0]],  # <- grid origin
+        [[0, 0, 0, 0, 0]],  # <- padding
+    ])
+    backward_actions = tf.constant([
+        [[0, 0, 0, 0, 1]],
+        [[0, 0, 0, 1, 0]],
+        [[0, 0, 0, 1, 0]],
+        [[0, 0, 0, 0, 0]],  # <- no action, defined for grid origin
+        [[0, 0, 0, 0, 0]],  # <- padding, no action
+    ])
+    forward_actions = tf.constant([
+        [[0, 0, 0, 0, 0, 1]],  # <- terminate action, defined at start of backward trajectories
+        [[0, 0, 0, 0, 1, 0]],
+        [[0, 0, 0, 1, 0, 0]],
+        [[0, 0, 0, 1, 0, 0]],
+        [[0, 0, 0, 0, 0, 0]],  # <- padding, no action
+    ])
+
+    dummy_log_Z0 = tf.constant(0.0, dtype=tf.float64)
+    dummy_log_rewards = tf.zeros(shape=(trajectory.shape[0], 1),
+                                 dtype=tf.float64)
+
+    with tf.GradientTape() as tape_1:
+        padded_log_proba_ratios = runner.agent.calculate_action_log_probability_ratio(
+            trajectory, backward_actions, forward_actions
+        )
+        padded_ave_loss = runner._calculate_ave_loss(
+            dummy_log_Z0, dummy_log_rewards, padded_log_proba_ratios
+        )
+
+    padded_grads = tape_1.gradient(
+        padded_ave_loss, runner.agent.policy.trainable_weights
+    )
+
+    with tf.GradientTape() as tape_2:
+        unpadded_log_proba_ratios = runner.agent.calculate_action_log_probability_ratio(
+            trajectory[:4], backward_actions[:4], forward_actions[:4]
+        )
+        unpadded_ave_loss = runner._calculate_ave_loss(
+            dummy_log_Z0, dummy_log_rewards, unpadded_log_proba_ratios
+        )
+
+    unpadded_grads = tape_2.gradient(
+        unpadded_ave_loss, runner.agent.policy.trainable_weights
+    )
+
+    for pad, unpad in zip(padded_grads, unpadded_grads):
+        tf.debugging.assert_near(pad, unpad)
