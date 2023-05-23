@@ -700,3 +700,126 @@ def test_still_sampling_flag_is_0_if_no_available_backward_action():
 
     assert is_still_sampling.shape == (action_mask.shape[0], 1)
     tf.debugging.assert_equal(is_still_sampling, expected)
+
+
+def test_action_log_proba_ratios_are_same_for_padded_and_unpadded_forward_trajectories():
+    grid_dim = 5
+    grid_length = 8
+    agent = Agent(
+        env_grid_dim=grid_dim,
+        env_grid_length=grid_length,
+    )
+
+    trajectory = tf.constant([
+        [[0, 0, 0, 0, 0]],
+        [[0, 0, 0, 0, 1]],
+        [[0, 0, 0, 1, 1]],  # <- terminal state
+        [[0, 0, 0, 1, 1]],  # <- padding
+        [[0, 0, 0, 1, 1]],  # <- padding
+    ])
+    forward_actions = tf.constant([
+        [[0, 0, 0, 0, 1, 0]],
+        [[0, 0, 0, 1, 0, 0]],
+        [[0, 0, 0, 0, 0, 1]],  # <- terminate action
+        [[0, 0, 0, 0, 0, 0]],  # <- padding, no action
+        [[0, 0, 0, 0, 0, 0]],  # <- padding, no action
+    ])
+    backward_actions = tf.constant([
+        [[0, 0, 0, 0, 0]],  # <- no action, defined for grid origin
+        [[0, 0, 0, 0, 1]],
+        [[0, 0, 0, 1, 0]],
+        [[0, 0, 0, 0, 0]],  # <- padding, no action
+        [[0, 0, 0, 0, 0]],  # <- padding, no action
+    ])
+
+    padded_log_proba_ratios = agent.calculate_action_log_probability_ratio(
+        trajectory, backward_actions, forward_actions
+    )
+    unpadded_log_proba_ratios = agent.calculate_action_log_probability_ratio(
+        trajectory[:3], backward_actions[:3], forward_actions[:3]
+    )
+
+    tf.debugging.assert_equal(
+        padded_log_proba_ratios[0][0], unpadded_log_proba_ratios[0][0]
+    )
+
+
+def test_action_log_proba_ratios_are_same_for_padded_and_unpadded_backward_trajectories():
+    grid_dim = 5
+    grid_length = 8
+    agent = Agent(
+        env_grid_dim=grid_dim,
+        env_grid_length=grid_length,
+    )
+
+    trajectory = tf.constant([
+        [[0, 0, 0, 2, 1]],
+        [[0, 0, 0, 2, 0]],
+        [[0, 0, 0, 1, 0]],
+        [[0, 0, 0, 0, 0]],  # <- grid origin
+        [[0, 0, 0, 0, 0]],  # <- padding
+    ])
+    backward_actions = tf.constant([
+        [[0, 0, 0, 0, 1]],
+        [[0, 0, 0, 1, 0]],
+        [[0, 0, 0, 1, 0]],
+        [[0, 0, 0, 0, 0]],  # <- no action, defined for grid origin
+        [[0, 0, 0, 0, 0]],  # <- padding, no action
+    ])
+    forward_actions = tf.constant([
+        [[0, 0, 0, 0, 0, 1]],  # <- terminate action, defined at start of backward trajectories
+        [[0, 0, 0, 0, 1, 0]],
+        [[0, 0, 0, 1, 0, 0]],
+        [[0, 0, 0, 1, 0, 0]],
+        [[0, 0, 0, 0, 0, 0]],  # <- padding, no action
+    ])
+
+    padded_log_proba_ratios = agent.calculate_action_log_probability_ratio(
+        trajectory, backward_actions, forward_actions
+    )
+    unpadded_log_proba_ratios = agent.calculate_action_log_probability_ratio(
+        trajectory[:4], backward_actions[:4], forward_actions[:4]
+    )
+
+    tf.debugging.assert_equal(
+        padded_log_proba_ratios[0][0], unpadded_log_proba_ratios[0][0]
+    )
+
+
+def test_action_log_proba_ratios_are_same_for_forward_and_backward_trajectories():
+    grid_dim = 5
+    grid_length = 8
+    agent = Agent(
+        env_grid_dim=grid_dim,
+        env_grid_length=grid_length,
+    )
+
+    trajectory = tf.constant([
+        [[0, 0, 0, 0, 0]],
+        [[0, 0, 0, 0, 1]],
+        [[0, 0, 1, 0, 1]],
+        [[0, 0, 1, 0, 2]],
+    ])
+    forward_actions = tf.constant([
+        [[0, 0, 0, 0, 1, 0]],
+        [[0, 0, 1, 0, 0, 0]],
+        [[0, 0, 0, 0, 1, 0]],
+        [[0, 0, 0, 0, 0, 1]],
+    ])
+    backward_actions = tf.constant([
+        [[0, 0, 0, 0, 0]],
+        [[0, 0, 0, 0, 1]],
+        [[0, 0, 1, 0, 0]],
+        [[0, 0, 0, 0, 1]],
+    ])
+
+    forward_log_proba_ratios = agent.calculate_action_log_probability_ratio(
+        trajectory, backward_actions, forward_actions
+    )
+    backward_log_proba_ratios = agent.calculate_action_log_probability_ratio(
+        trajectory[::-1], backward_actions[::-1], forward_actions[::-1]
+    )
+
+    tf.debugging.assert_equal(
+        forward_log_proba_ratios[0][0], backward_log_proba_ratios[0][0]
+    )
