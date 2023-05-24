@@ -32,6 +32,13 @@ class Agent:
     def set_initial_estimate_for_log_z0(
             self, single_vertex_amplitudes, n_vertices, frac=0.99
     ):
+        """
+        Set a heuristic for the initial estimate of log_Z0. The aim is to shift
+        the difference log_Z0 - log_rewards in the loss function to a smaller
+        value.
+
+        TODO: May be better to move the calculation in Runner()
+        """
         abs_max = tf.reduce_max(tf.math.abs(single_vertex_amplitudes))
         estimate_log_max_reward = 2*n_vertices*tf.math.log(abs_max)
         self.log_Z0 = tf.Variable(
@@ -217,12 +224,19 @@ class Agent:
 
     @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
     def _get_action_logits(self, current_position):
+        """
+        Get the logits corresponding to forward and backward actions by encoding
+        the input batch of states and passing them to the policy network.
+        """
         encoded_position = self._encode_positions(current_position)
         backward_logits, forward_logits = self.policy(encoded_position)
         return backward_logits, forward_logits
 
     @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
     def _encode_positions(self, position):
+        """
+        One-hot encode each coordinate of each state in the input batch.
+        """
         encoded_position = tf.one_hot(
             position, depth=self.env_grid_length, axis=-1, dtype=tf.float64
         )
@@ -231,11 +245,21 @@ class Agent:
     @staticmethod
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def _find_forbidden_backward_actions(position):
+        """
+        Create a boolean mask with True specifying which coordinates cannot be
+        decremented by a backward action. These correspond to the invalid
+        backward actions for the input batch of states.
+        """
         backward_action_mask = tf.math.equal(position, 0)
         return backward_action_mask
 
     @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.int32)])
     def _find_forbidden_forward_actions(self, position):
+        """
+        Create a boolean mask with True specifying which coordinates cannot be
+        incremented by a forward action. These correspond to the invalid
+        forward actions for the input batch of states.
+        """
         forward_action_mask = tf.math.equal(position, self.env_grid_length - 1)
         return forward_action_mask
 
@@ -244,6 +268,12 @@ class Agent:
         tf.TensorSpec(shape=None, dtype=tf.bool)
     ])
     def _mask_action_logits(self, action_logits, mask):
+        """
+        Mask the logits corresponding to invalid actions by replacing the
+        original values with a very large negative number (defined by
+        self.NEG_INF). This should then give a zero probability for the invalid
+        actions to be chosen.
+        """
         avoid_inds = tf.where(mask)
         orig_values = tf.gather_nd(action_logits, avoid_inds)
         add_values = -orig_values + self.NEG_INF
@@ -254,11 +284,18 @@ class Agent:
     @staticmethod
     @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.float64)])
     def _choose_actions(logits):
+        """
+        Choose an action (represented by an index) based on the input batch of
+        logits.
+        """
         action_indices = tf.random.categorical(logits, 1)
         return action_indices
 
     @tf.function(input_signature=[tf.TensorSpec(shape=(None, 1), dtype=tf.int64)])
     def _encode_forward_actions(self, action_indices):
+        """
+        One-hot encode the input batch of forward action indices.
+        """
         reshaped_action_indices = tf.reshape(action_indices, shape=(-1,))
         encoded_actions = tf.one_hot(reshaped_action_indices, depth=self.forward_action_dim, dtype=tf.int32)
         return encoded_actions
@@ -269,11 +306,23 @@ class Agent:
         tf.TensorSpec(shape=(None, None), dtype=tf.int32)
     ])
     def _update_if_stop_action_is_chosen(still_sampling, forward_actions):
+        """
+        Update the still_sampling flags from 1 to 0 if the terminate action is
+        chosen. Note that if still_sampling=0 already, then the corresponding
+        forward_actions will be set to 0 ("no action") beforehand.
+        """
         will_continue_to_sample = still_sampling - tf.reshape(forward_actions[:, -1], shape=(-1, 1))
         return will_continue_to_sample
 
     @tf.function(input_signature=[tf.TensorSpec(shape=(None, None, None), dtype=tf.int32)])
     def _get_action_logits_for_trajectories(self, trajectories):
+        """
+        Wrapper of _get_action_logits() for a batch of trajectories. The
+        sequence of states are reshaped into a 2D tensor first and are passed to
+        _get_action_logits() to get the corresponding forward and backward
+        logits for each state. These are then reshaped back accordingly to a 3D
+        tensor.
+        """
         shape = tf.shape(trajectories)
         max_traj_len = shape[0]
         batch_size = shape[1]
@@ -294,6 +343,9 @@ class Agent:
         tf.TensorSpec(shape=(None, None, None), dtype=tf.int32)
     ])
     def _calculate_backward_action_log_probabilities(self, positions, logits, actions):
+        """
+        Wrapper of _calculate_log_probability_of_actions() for backward actions.
+        """
         action_mask = self._find_forbidden_backward_actions(positions)
         action_log_probas = self._calculate_log_probability_of_actions(action_mask, logits, actions)
         return action_log_probas
@@ -304,6 +356,9 @@ class Agent:
         tf.TensorSpec(shape=(None, None, None), dtype=tf.int32)
     ])
     def _calculate_forward_action_log_probabilities(self, positions, logits, actions):
+        """
+        Wrapper of _calculate_log_probability_of_actions() for forward actions.
+        """
         action_mask = self._find_forbidden_forward_actions(positions)
         action_log_probas = self._calculate_log_probability_of_actions(action_mask, logits, actions)
         return action_log_probas
@@ -314,6 +369,11 @@ class Agent:
         tf.TensorSpec(shape=(None, None, None), dtype=tf.int32)
     ])
     def _calculate_log_probability_of_actions(self, action_mask, logits, actions):
+        """
+        Calculate the log-probabilities for a batch of actions by masking out
+        the logits corresponding to invalid actions, normalizing accordingly,
+        and retrieving those associated with the input actions.
+        """
         allowed_log_probas = self._normalize_allowed_action_logits(logits, action_mask)
         log_proba_of_chosen_actions = self._get_action_log_probas(allowed_log_probas, actions)
         return log_proba_of_chosen_actions
@@ -323,6 +383,12 @@ class Agent:
         tf.TensorSpec(shape=(None, None, None), dtype=tf.bool),
     ])
     def _normalize_allowed_action_logits(self, logits, mask):
+        """
+        Calculate log-probabilities by masking out logits corresponding to
+        invalid actions and passing the result to a log_softmax function. Taking
+        the exponential would then give probabilities for actions and
+        specifically a zero probability for invalid actions.
+        """
         allowed_action_logits = self._mask_action_logits(logits, mask)
         allowed_log_probas = tf.nn.log_softmax(allowed_action_logits)
         return allowed_log_probas
@@ -333,6 +399,14 @@ class Agent:
         tf.TensorSpec(shape=(None, None, None), dtype=tf.int32),
     ])
     def _get_action_log_probas(log_probas, actions):
+        """
+        Get the log-probabilities for a batch of actions. Multiplying with the
+        one-hot encoded actions would set all to zero except for the desired
+        log-probabilities so that the sum retrieves those associated with the
+        input actions. Specifically, the "no action" would give a zero which
+        will not affect the total sum of log-probabilities for the entire
+        trajectory.
+        """
         action_log_probas = tf.reduce_sum(
             log_probas * tf.cast(actions, dtype=tf.float64),
             axis=2,
@@ -343,6 +417,30 @@ class Agent:
 
     @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
     def act_backward(self, current_position):
+        """
+        Select an action to generate a valid backward state transition. The
+        current state is fed to the policy network which returns logits for the
+        backward actions. The logits of invalid actions are then masked to avoid
+        transitioning to states outside the environment grid. Based on the
+        resulting masked logits, an action is chosen and encoded accordingly.
+        Set the encoded action to zero (representing no action) if the
+        trajectory has reached the grid origin.
+
+        Parameters:
+        -----------
+        current_position:
+            Batch of states shown to the agent. Based on these states, the agent
+            will choose a valid action for each to transition them backward.
+
+        Return:
+        -------
+        backward_actions:
+            Batch of one-hot encoded backward actions for each state in
+            current_position. A 1 in the i^{th} index represents decrementing
+            the i^{th} coordinate in a state by 1. If all are 0, this means that
+            the agent will not change the state (this should only happen when
+            the state is at the grid origin).
+        """
         backward_action_logits, _ = self._get_action_logits(current_position)
 
         action_mask = self._find_forbidden_backward_actions(current_position)
@@ -357,6 +455,9 @@ class Agent:
 
     @tf.function(input_signature=[tf.TensorSpec(shape=(None, 1), dtype=tf.int64)])
     def _encode_backward_actions(self, action_indices):
+        """
+        One-hot encode the input batch of forward action indices.
+        """
         reshaped_action_indices = tf.reshape(action_indices, shape=(-1,))
         encoded_actions = tf.one_hot(reshaped_action_indices,
                                      depth=self.backward_action_dim,
@@ -366,6 +467,15 @@ class Agent:
     @staticmethod
     @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.bool)])
     def _check_if_able_to_act_backward(backwards_action_mask):
+        """
+        Create a flag for each state in the batch representing whether the state
+        is at the grid origin so that there is no longer any valid backward
+        action. If is_able=0 for a specific state, the agent will not make an
+        action on it so that it will remain at the grid origin for the next
+        iterations.
+
+        The flag is_able is similar to is_still_sampling in act_forward()
+        """
         is_at_origin = tf.math.reduce_all(backwards_action_mask, axis=1,
                                           keepdims=True)
         is_able = tf.cast(tf.math.logical_not(is_at_origin), dtype=tf.int32)

@@ -257,6 +257,10 @@ class Runner:
         ]
     )
     def _calculate_ave_loss(log_Z0, log_rewards, action_log_proba_ratios):
+        """
+        Calculate the Trajectory Balance loss averaged over all the trajectories
+        generated during the training step.
+        """
         loss = tf.math.square(log_Z0 - log_rewards + action_log_proba_ratios)
         ave_loss = tf.reduce_mean(loss)
         return ave_loss
