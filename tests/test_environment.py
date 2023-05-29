@@ -50,7 +50,7 @@ def test_single_vertex_rewards_are_correct():
     assert reward == expected_reward
 
 
-def test_star_amplitudes_are_correct():
+def test_log_of_star_amplitudes_squared_are_correct():
     spin_j = 3
     env = SpinFoamEnvironment(
         spinfoam_model=StarModelSpinFoam(spin_j=spin_j)
@@ -62,6 +62,7 @@ def test_star_amplitudes_are_correct():
 
     vertex_amplitudes = env.spinfoam_model.single_vertex_amplitudes
     star_amplitudes = env.spinfoam_model.get_spinfoam_amplitudes(positions)
+    log_sq_star_amplitudes = tf.math.log(tf.square(star_amplitudes))
 
     # From Python_notebook.ipynb
     def star_reward_optimized(tensor, indices, optimize_path=False):
@@ -77,22 +78,25 @@ def test_star_amplitudes_are_correct():
             )
         )
 
-    expected_star_amplitude_0 = star_reward_optimized(
+    expected_sq_star_amplitude_0 = star_reward_optimized(
         vertex_amplitudes.numpy(), positions[0, :].numpy()
     )
-    expected_star_amplitude_1 = star_reward_optimized(
+    expected_sq_star_amplitude_1 = star_reward_optimized(
         vertex_amplitudes.numpy(), positions[1, :].numpy()
     )
 
+    expected_log_sq_star_ampl_0 = np.log(expected_sq_star_amplitude_0)
+    expected_log_sq_star_ampl_1 = np.log(expected_sq_star_amplitude_1)
+
     np.testing.assert_almost_equal(
-        star_amplitudes[0], expected_star_amplitude_0
+        log_sq_star_amplitudes[0], expected_log_sq_star_ampl_0
     )
     np.testing.assert_almost_equal(
-        star_amplitudes[1], expected_star_amplitude_1
+        log_sq_star_amplitudes[1], expected_log_sq_star_ampl_1
     )
 
 
-def test_star_amplitude_rewards_are_correct():
+def test_star_amplitude_log_rewards_are_correct():
     spin_j = 3
     env = SpinFoamEnvironment(
         spinfoam_model=StarModelSpinFoam(spin_j=spin_j)
@@ -102,6 +106,7 @@ def test_star_amplitude_rewards_are_correct():
         [2, 0, 1, 4, 3, 0, 0, 1, 4, 3, 0, 0, 1, 4, 3, 4, 0, 1, 4, 3]
     ])
     rewards = env.get_rewards(positions)
+    log_rewards = tf.math.log(rewards)
 
     # Define rewards as square of scaled amplitudes
     vertex_amplitudes = env.spinfoam_model.single_vertex_amplitudes
@@ -120,19 +125,16 @@ def test_star_amplitude_rewards_are_correct():
             )
         )
 
-    star_amplitude_0 = star_reward_optimized(
+    expected_log_rewards_0 = np.log(star_reward_optimized(
         vertex_amplitudes.numpy(), positions[0, :].numpy()
-    )
-    star_amplitude_1 = star_reward_optimized(
+    ))
+    expected_log_rewards_1 = np.log(star_reward_optimized(
         vertex_amplitudes.numpy(), positions[1, :].numpy()
-    )
-
-    expected_rewards_0 = star_amplitude_0 ** 2
-    expected_rewards_1 = star_amplitude_1 ** 2
+    ))
 
     np.testing.assert_almost_equal(
-        rewards[0, 0], expected_rewards_0
+        log_rewards[0, 0], expected_log_rewards_0
     )
     np.testing.assert_almost_equal(
-        rewards[1, 0], expected_rewards_1
+        log_rewards[1, 0], expected_log_rewards_1
     )
