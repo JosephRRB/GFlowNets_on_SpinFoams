@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import pandas as pd
 import numpy as np
 import tensorflow as tf
 
@@ -91,22 +92,27 @@ class Runner:
                     f"{generated_samples_dir}/"
                     f"epoch_{i + 1}"
                     f"_after_learn_from_{trained_on_k_samples}"
-                    "_train_samples.csv"
+                    "_train_samples.feather"
                 )
                 samples_file.touch()
 
-                header = ",".join(
-                    [f"intertwiner {i+1}" for i in reversed(range(self.env.spinfoam_model.n_boundary_intertwiners))]
-                )
+                columns = [f"intertwiner {i+1}" for i in reversed(range(self.env.spinfoam_model.n_boundary_intertwiners))]
+                # header = ",".join(columns)
 
-                np.savetxt(
-                    samples_file,
-                    samples.numpy(),
-                    delimiter=",",
-                    header=header,
-                    fmt="%i",
-                    comments="",
-                )
+                # Save data as .feather format instead using pandas
+                pd.DataFrame(
+                    data=samples.numpy(),
+                    columns=columns
+                ).to_feather(samples_file)
+
+                # np.savetxt(
+                #     samples_file,
+                #     samples.numpy(),
+                #     delimiter=",",
+                #     header=header,
+                #     fmt="%i",
+                #     comments="",
+                # )
 
         ave_losses = ave_losses.stack()
 
