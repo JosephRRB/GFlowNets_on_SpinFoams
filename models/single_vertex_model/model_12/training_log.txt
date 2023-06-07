@@ -1,0 +1,17 @@
+Testing model: single_vertex_model
+
+Starting training for parameter set 12 of 32
+
+1000th iteration trained on 1000000 samples with average loss 2.056699269380252
+2000th iteration trained on 2000000 samples with average loss 1.8519136152341098
+3000th iteration trained on 3000000 samples with average loss 1.236305221602276
+4000th iteration trained on 4000000 samples with average loss 1.5875866468004696
+5000th iteration trained on 5000000 samples with average loss 1.0847808144335793
+6000th iteration trained on 6000000 samples with average loss 0.9305635624887206
+7000th iteration trained on 7000000 samples with average loss 0.6608687625098562
+8000th iteration trained on 8000000 samples with average loss 0.4584541836357758
+9000th iteration trained on 9000000 samples with average loss 0.660171379234653
+10000th iteration trained on 10000000 samples with average loss 0.6869643606327936
+
+Finished training, elapsed time: 2.93 minutes
+
